@@ -9,12 +9,12 @@ import pickle
 # from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
 import gensim
 from gensim.models import KeyedVectors
-from utils import create_dict, dump_dict
+from utils import create_dict
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
 tf.app.flags.DEFINE_string("tokenize_style", 'word', "the style of tokenize sentence in char or word. default is char")
-tf.app.flags.DEFINE_string("dict_dir", "model", "name scope value.")
+tf.app.flags.DEFINE_string("pkl_dir", "model", "dir for save pkl file")
 tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
 tf.app.flags.DEFINE_integer("embed_size", 50, "embedding size")  # 128
 tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
@@ -42,26 +42,41 @@ filter_sizes = [2, 3, 4]
 
 class Main:
     def __init__(self):
-        self.word_to_index = None
-        self.index_to_word = None
-        self.label_to_index = None
-        self.index_to_label = None
+        self.word_to_index = None   # word到index的映射字典
+        self.index_to_word = None   # index到字符word的映射字典
+        self.label_to_index = None   # label到index的映射字典
+        self.index_to_label = None  # index到label的映射字典
+        self.vocab_size = None  # 字符的词典大小
+        self.num_classes = None  # 类别标签数量
 
     def get_dict(self):
-        if not os.path.isdir(FLAGS.dict_dir):   # 创建存储临时字典数据的目录
-            os.makedirs(FLAGS.dict_dir)
-        word_label_path = os.path.join(FLAGS.dict_dir, "word_label.pkl")    # 存储word和label与index之间的双向映射字典
-        if os.path.exists(word_label_path):  # 若word_label_path已存在
-            with open(word_label_path, 'rb') as dict_f:
+        """
+        获取word和label与索引index之间的双向映射字典
+        :return:
+        """
+        if not os.path.isdir(FLAGS.pkl_dir):   # 创建存储临时字典数据的目录
+            os.makedirs(FLAGS.pkl_dir)
+        word_label_dict = os.path.join(FLAGS.pkl_dir, "word_label_dict.pkl")    # 存储word和label与index之间的双向映射字典
+        if os.path.exists(word_label_dict):  # 若word_label_path已存在
+            with open(word_label_dict, 'rb') as dict_f:
                 self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label = pickle.load(dict_f)
         else:   # 重新读取训练数据并创建各个映射字典
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 train_data = csv.reader(data_f, delimiter='\t', quotechar='|')
-                self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label = create_dict(train_data)
-        # print(self.word_to_index)
+                self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label = create_dict(train_data, word_label_dict)
+                # print(self.word_to_index)
+                with open(word_label_dict, "wb") as dict_f:  # 创建映射字典后进行存储
+                    pickle.dump([self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label], dict_f)
+        self.vocab_size = len(self.word_to_index)
+        self.num_classes = len(self.label_to_index)
 
     def get_data(self):
-        pass
+        train_valid_test = os.path.join(FLAGS.pkl_dir, "train_valid_test.pkl")
+        if os.path.exists(train_valid_test):
+            with open(train_valid_test, 'rb') as data_f:
+                train_data, valid_data, test_data = pickle.load(data_f)
+        else:
+            pass
 
     def get_batch_data(self):
         pass

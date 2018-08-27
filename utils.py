@@ -1,11 +1,12 @@
 from collections import Counter
 
 
-def create_dict(data):
+def create_dict(data, path):
     """
     通过训练集创建字符word和label与索引index之间的双向映射字典
     :param data:被读取的训练数据
-    :return:
+    :param path:存储字典的路径
+    :return:四个dict:word和label与索引index之间的双向映射字典
     """
     word_to_index = {}
     index_to_word = {}
@@ -21,13 +22,10 @@ def create_dict(data):
         string_list_2 = list(row[2])
         c_inputs.update(string_list_1)
         c_inputs.update(string_list_2)
-        vocab_list = c_inputs.most_common(13422)  # 找到词频最高的字符并排序
+        vocab_list = c_inputs.most_common(20000)  # 找到词频最高的字符并排序，参数对映射字典大小进行限制
     for i, word_freq in enumerate(vocab_list):
         # print(word_freq)  # word_freq是word和相应词频的元组
         word, _ = word_freq
         word_to_index[word] = i + 2
         index_to_word[i+2] = word
     return word_to_index, index_to_word, label_to_index, index_to_label
-
-def dump_dict():
-    pass
