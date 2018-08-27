@@ -9,7 +9,8 @@ import pickle
 # from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
 import gensim
 from gensim.models import KeyedVectors
-from utils import create_dict, create_data, get_features
+from data_utils import create_dict
+from utils import get_tfidf_and_save, load_tfidf_dict, load_vector
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
@@ -81,8 +82,17 @@ class Main:
         else:   # 读取数据集并创建训练集、验证集和测试集
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 all_data = csv.reader(data_f, delimiter='\t', quotechar='|')
-                get_features(all_data)
-                create_data(all_data)
+                # 获取tfidf值
+                tfidf_path = "data/tfidf.txt"   # 存储tfidf值的文件路径
+                if not os.path.exists(tfidf_path):
+                    get_tfidf_and_save(all_data, tfidf_path)
+                tfidf_dict = load_tfidf_dict(tfidf_path)
+                # 获取fasttext词向量
+                fasttext_path = "data/fasttext_fin_model_50.vec"
+                fasttext_dict = load_vector(fasttext_path)
+                # 获取word2vec词向量
+                word2vec_path = "data/word2vec.txt"
+                word2vec_dict = load_vector(word2vec_path)
 
     def get_batch_data(self):
         pass
