@@ -9,7 +9,7 @@ import pickle
 # from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
 import gensim
 from gensim.models import KeyedVectors
-from data_utils import create_dict
+from data_utils import create_dict, features_engineer
 from utils import get_tfidf_and_save, load_tfidf_dict, load_vector
 
 FLAGS = tf.app.flags.FLAGS
@@ -93,6 +93,9 @@ class Main:
                 # 获取word2vec词向量
                 word2vec_path = "data/word2vec.txt"
                 word2vec_dict = load_vector(word2vec_path)
+                # 基于tfidf值、fasttext词向量、word2vec词向量进行特征工程，并获取相应的特征向量
+                features_vector = features_engineer(all_data, self.word_to_index, fasttext_dict,
+                                                    word2vec_dict, tfidf_dict, n_gram=8)
 
     def get_batch_data(self):
         pass
