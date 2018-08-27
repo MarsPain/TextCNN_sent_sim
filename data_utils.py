@@ -38,10 +38,20 @@ def create_dict(data):
 
 
 def features_engineer(data, word_to_index, fasttext_dict, word2vec_dict, tfidf_dict, n_gram):
+    """
+    特征工程，基于tfidf值、fasttext词向量、word2vec词向量构造多种特征
+    :param data:
+    :param word_to_index:word-index的映射字典
+    :param fasttext_dict:word-fasttext字典
+    :param word2vec_dict:word-word2vec字典
+    :param tfidf_dict:word-tfidf字典
+    :param n_gram:n_gram similiarity窗口大小
+    :return:
+    """
     features_vector = []
     for _, row in enumerate(data):
         features_vector_line = []
-        # 此处不用，但是在拿到特征工程结果后悔用到
+        # 此处不用，但是在拿到特征工程结果后会用到
         # word_list_1 = list(row[1])  # 第一个句子的字符word组成的列表
         # index_list_1 = [word_to_index.get(word, UNK_ID) for word in word_list_1]
         # word_list_2 = list(row[2])  # 第一个句子的字符word组成的列表
@@ -60,6 +70,12 @@ def features_engineer(data, word_to_index, fasttext_dict, word2vec_dict, tfidf_d
 
 
 def split_string_as_list_by_ngram(input_string, ngram_value):
+    """
+    根据不同ngram_value大小对string进行拆分
+    :param input_string: 需要拆分的字符串string
+    :param ngram_value: n_gram窗口大小
+    :return:
+    """
     input_string = "".join([string for string in input_string if string.strip()])
     length = len(input_string)
     result_string = []
@@ -70,7 +86,13 @@ def split_string_as_list_by_ngram(input_string, ngram_value):
     return result_string
 
 
-def compute_ngram_sim(x1_list, x2_list):    # 计算n-gram similiarity（blue score）
+def compute_ngram_sim(x1_list, x2_list):
+    """
+    计算n-gram similiarity
+    :param x1_list:
+    :param x2_list:
+    :return:
+    """
     count_dict = {}
     count_dict_clip = {}
     # 1. count for each token at predict sentence side.
