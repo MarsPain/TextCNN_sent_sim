@@ -59,5 +59,5 @@ def load_vector(path):
             word_vec = line.strip().split()
             vec_list = [float(x) for x in word_vec[1:]]
             vector_dict[word_vec[0]] = np.asarray(vec_list)
-    print("vector_dict:", vector_dict)
+    # print("vector_dict:", vector_dict)
     return vector_dict

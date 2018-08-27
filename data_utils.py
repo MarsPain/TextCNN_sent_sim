@@ -54,6 +54,7 @@ def features_engineer(data, word_to_index, fasttext_dict, word2vec_dict, tfidf_d
             x2_list = split_string_as_list_by_ngram(string_2, i + 1)
             ngram_sim_1 = compute_ngram_sim(x1_list, x2_list)
             ngram_sim_2 = compute_ngram_sim(x2_list, x1_list)
+            print("ngram_sim_1:", ngram_sim_1)
             features_vector_line.append(ngram_sim_1)
             features_vector_line.append(ngram_sim_2)
 
@@ -75,19 +76,11 @@ def compute_ngram_sim(x1_list, x2_list):    # 计算n-gram similiarity（blue sc
     # 1. count for each token at predict sentence side.
     for token in x1_list:
         count_dict[token] = count_dict[token] + 1 if token in count_dict else 1
-        # if token not in count_dict:
-        #     count_dict[token] = 1
-        # else:
-        #     count_dict[token] = count_dict[token] + 1
     count = np.sum([value for key, value in count_dict.items()])
     # 2.count for tokens existing in predict sentence for target sentence side.
     for token in x2_list:
         if token in count_dict:
             count_dict_clip[token] = count_dict_clip[token] + 1 if token in count_dict_clip else 1
-            # if token not in count_dict_clip:
-            #     count_dict_clip[token] = 1
-            # else:
-            #     count_dict_clip[token] = count_dict_clip[token] + 1
     # 3. clip value to ceiling value for that token
     count_dict_clip = {key: (value if value <= count_dict[key] else count_dict[key])
                        for key, value in count_dict_clip.items()}
