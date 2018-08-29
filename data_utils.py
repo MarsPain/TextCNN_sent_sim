@@ -82,23 +82,23 @@ def features_engineer(data, word_to_index, fasttext_dict, word2vec_dict, tfidf_d
         string_list_1 = list(string_1)
         string_list_2 = list(string_2)
         dist_fasttext_list = distance_vector_tfidf(string_list_1, string_list_2, fasttext_dict, tfidf_dict)
-        dist_word2vec_list = distance_vector_tfidf(string_list_1, string_list_2, fasttext_dict, tfidf_dict)
+        dist_word2vec_list = distance_vector_tfidf(string_list_1, string_list_2, word2vec_dict, tfidf_dict)
         features_vector_line.extend(dist_fasttext_list)
         features_vector_line.extend(dist_word2vec_list)
         # print("features_vector_line:", len(features_vector_line), features_vector_line)
         features_vector.append(features_vector_line)
-    print("features_vector:", len(features_vector), features_vector)
+    # print("features_vector:", len(features_vector), features_vector)
     return features_vector
 
 
-def split_string_as_list_by_ngram(input_string, ngram_value):
+def split_string_as_list_by_ngram(string, ngram_value):
     """
     根据不同ngram_value大小对string进行拆分
-    :param input_string: 需要拆分的字符串string
+    :param string: 需要拆分的字符串string
     :param ngram_value: n_gram窗口大小
     :return:
     """
-    input_string = "".join([string for string in input_string if string.strip()])
+    input_string = "".join([string for string in string if string.strip()])
     length = len(input_string)
     result_string = []
     for i in range(length):
@@ -134,8 +134,13 @@ def compute_ngram_sim(x1_list, x2_list):
 
 
 def get_sentence_diff(index, string_1, string_2):
-    # input_list1 = [input_string_x1[token] for token in range(len(input_string_x1)) if input_string_x1[token].strip()]
-    # input_list2 = [input_string_x2[token] for token in range(len(input_string_x2)) if input_string_x2[token].strip()]
+    """
+    获取单词相似度以及差异度（相同词和不同词的比例）
+    :param index:
+    :param string_1:第一个句子
+    :param string_2:第二个句子
+    :return:
+    """
     string_list_1 = list(string_1)
     string_list_2 = list(string_2)
     length1 = len(string_list_1)
@@ -166,6 +171,12 @@ def get_sentence_diff(index, string_1, string_2):
 
 
 def get_edit_distance(string_1, string_2):
+    """
+    获取两个句子之间的编辑距离
+    :param string_1:
+    :param string_2:
+    :return:
+    """
     matrix = [[i + j for j in range(len(string_2) + 1)] for i in range(len(string_1) + 1)]  # 动态规划矩阵
     for i in range(1, len(string_1) + 1):
         for j in range(1, len(string_2) + 1):
@@ -178,6 +189,15 @@ def get_edit_distance(string_1, string_2):
 
 
 def distance_vector_tfidf(string_list_1, string_list_2, vector_dict, tfidf_dict, tfidf_flag=True):
+    """
+    基于词向量以及tfidf计算文本的余弦距离、曼哈登距离等
+    :param string_list_1:第一个句子中的单词组成的列表
+    :param string_list_2:第二个句子中的单词组成的列表
+    :param vector_dict:词向量的映射字典，键值对为word-vector
+    :param tfidf_dict:tfidf值的映射字典，键值对为word-tfidf score
+    :param tfidf_flag:是否在计算中利用tfidf值
+    :return:
+    """
     # 从词向量字典中获取词向量
     sentence_vec_1 = get_sentence_vector(vector_dict, tfidf_dict, string_list_1, tfidf_flag=tfidf_flag)
     sentence_vec_2 = get_sentence_vector(vector_dict, tfidf_dict, string_list_2, tfidf_flag=tfidf_flag)
@@ -209,6 +229,14 @@ def distance_vector_tfidf(string_list_1, string_list_2, vector_dict, tfidf_dict,
 
 
 def get_sentence_vector(vector_dict, tfidf_dict, string_list, tfidf_flag):
+    """
+    基于词向量字典、tfidf字典、语句的词列表得到每个句子的向量表示
+    :param vector_dict:词向量的映射字典，键值对为word-vector
+    :param tfidf_dict:tfidf值的映射字典，键值对为word-tfidf score
+    :param string_list:句子中的单词组成的列表
+    :param tfidf_flag:是否在计算中利用tfidf值
+    :return:
+    """
     vector_sentence = 0.0
     # vector_dim = len(vector_dict['花呗'])
     for word in string_list:

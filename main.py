@@ -93,7 +93,7 @@ class Main:
                 # 获取word2vec词向量
                 word2vec_path = "data/word2vec.txt"
                 word2vec_dict = load_vector(word2vec_path)
-                # 基于tfidf值、fasttext词向量、word2vec词向量进行特征工程，并获取相应的特征向量
+                # 基于句子的长度和包含的词汇、tfidf值、fasttext词向量、word2vec词向量进行特征工程，并获取相应的特征向量
                 features_vector = features_engineer(all_data, self.word_to_index, fasttext_dict,
                                                     word2vec_dict, tfidf_dict, n_gram=8)
 
