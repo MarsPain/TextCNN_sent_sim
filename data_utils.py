@@ -24,8 +24,8 @@ def create_dict(data):
     c_inputs = Counter()    # Counter用于统计字符串里某个字符出现的次数
     vocab_list = []  # 存储高词频的word及其相应的频数
     for i, row in enumerate(data):
-        string_list_1 = list(row[1])
-        string_list_2 = list(row[2])
+        string_list_1 = list(row[1].strip())
+        string_list_2 = list(row[2].strip())
         c_inputs.update(string_list_1)
         c_inputs.update(string_list_2)
         vocab_list = c_inputs.most_common(20000)  # 参数对word数量进行限制
@@ -49,24 +49,33 @@ def features_engineer(data, word_to_index, fasttext_dict, word2vec_dict, tfidf_d
     :return:
     """
     features_vector = []
-    for _, row in enumerate(data):
+    for index, row in enumerate(data):
         features_vector_line = []
         # 此处不用，但是在拿到特征工程结果后会用到
         # word_list_1 = list(row[1])  # 第一个句子的字符word组成的列表
         # index_list_1 = [word_to_index.get(word, UNK_ID) for word in word_list_1]
         # word_list_2 = list(row[2])  # 第一个句子的字符word组成的列表
         # index_list_2 = [word_to_index.get(word, UNK_ID) for word in word_list_2]
-        string_1 = row[1]
-        string_2 = row[2]
-        # 获取n-gram similiarity
+        string_1 = row[1].strip()
+        string_2 = row[2].strip()
+        # 获取n-gram similarity
         for i in range(n_gram):
             x1_list = split_string_as_list_by_ngram(string_1, i+1)
             x2_list = split_string_as_list_by_ngram(string_2, i + 1)
             ngram_sim_1 = compute_ngram_sim(x1_list, x2_list)
             ngram_sim_2 = compute_ngram_sim(x2_list, x1_list)
-            print("ngram_sim_1:", ngram_sim_1)
+            # print("ngram_sim_1:", ngram_sim_1)
             features_vector_line.append(ngram_sim_1)
             features_vector_line.append(ngram_sim_2)
+        # 获取两个句子的长度差异性（length difference）
+        len_string_1 = float(len(string_1))
+        len_string_2 = float(len(string_2))
+        len_diff = (float(abs(len_string_1-len_string_2)))/((len_string_1+len_string_2)/2.0)
+        features_vector_line.append(len_diff)
+        # 获取相同词和不同词的比例
+        sentence_diff_list = get_sentence_diff(index, string_1, string_2)
+        features_vector_line.extend(sentence_diff_list)
+        print("features_vector_line:", len(features_vector_line), features_vector_line)
 
 
 def split_string_as_list_by_ngram(input_string, ngram_value):
@@ -109,3 +118,35 @@ def compute_ngram_sim(x1_list, x2_list):
     count_clip = np.sum([value for key, value in count_dict_clip.items()])
     result = float(count_clip)/(float(count)+0.00000001)
     return result
+
+
+def get_sentence_diff(index, string_1, string_2):
+    # input_list1 = [input_string_x1[token] for token in range(len(input_string_x1)) if input_string_x1[token].strip()]
+    # input_list2 = [input_string_x2[token] for token in range(len(input_string_x2)) if input_string_x2[token].strip()]
+    string_list_1 = list(string_1)
+    string_list_2 = list(string_2)
+    length1 = len(string_list_1)
+    length2 = len(string_list_2)
+    num_same = 0
+    same_word_list = []
+    # 计算相同的词在句子中所占比例
+    for word1 in string_list_1:
+        for word2 in string_list_2:
+            if word1 == word2:
+                num_same += 1
+                same_word_list.append(word1)
+                continue
+    num_same_pert_min = float(num_same)/float(max(length1,length2))
+    num_same_pert_max = float(num_same) / float(min(length1, length2))
+    num_same_pert_avg = float(num_same) / (float(length1+length2)/2.0)
+    # 计算不同的词在句子中所占比例
+    input_list1_unique = set([x for x in string_list_1 if x not in same_word_list])
+    input_list2_unique = set([x for x in string_list_2 if x not in same_word_list])
+    num_diff_x1 = float(len(input_list1_unique))/float(length1)
+    num_diff_x2 = float(len(input_list2_unique)) / float(length2)
+    if index == 0:  # print debug message
+        pass
+        # print("string_1:", string_1)
+        # print("string_2:", string_2)
+    sentence_diff_list = [num_same_pert_min, num_same_pert_max, num_same_pert_avg, num_diff_x1, num_diff_x2]
+    return sentence_diff_list
