@@ -72,10 +72,23 @@ def features_engineer(data, word_to_index, fasttext_dict, word2vec_dict, tfidf_d
         len_string_2 = float(len(string_2))
         len_diff = (float(abs(len_string_1-len_string_2)))/((len_string_1+len_string_2)/2.0)
         features_vector_line.append(len_diff)
-        # 获取相同词和不同词的比例
+        # 获取单词相似度以及差异度（相同词和不同词的比例）
         sentence_diff_list = get_sentence_diff(index, string_1, string_2)
         features_vector_line.extend(sentence_diff_list)
-        print("features_vector_line:", len(features_vector_line), features_vector_line)
+        # 获取编辑距离
+        edit_dist = float(get_edit_distance(string_1, string_2))/30.0
+        features_vector_line.append(edit_dist)
+        # 基于词向量以及tfidf计算文本的余弦距离、曼哈登距离等
+        string_list_1 = list(string_1)
+        string_list_2 = list(string_2)
+        dist_fasttext_list = distance_vector_tfidf(string_list_1, string_list_2, fasttext_dict, tfidf_dict)
+        dist_word2vec_list = distance_vector_tfidf(string_list_1, string_list_2, fasttext_dict, tfidf_dict)
+        features_vector_line.extend(dist_fasttext_list)
+        features_vector_line.extend(dist_word2vec_list)
+        # print("features_vector_line:", len(features_vector_line), features_vector_line)
+        features_vector.append(features_vector_line)
+    print("features_vector:", len(features_vector), features_vector)
+    return features_vector
 
 
 def split_string_as_list_by_ngram(input_string, ngram_value):
@@ -136,7 +149,7 @@ def get_sentence_diff(index, string_1, string_2):
                 num_same += 1
                 same_word_list.append(word1)
                 continue
-    num_same_pert_min = float(num_same)/float(max(length1,length2))
+    num_same_pert_min = float(num_same)/float(max(length1, length2))
     num_same_pert_max = float(num_same) / float(min(length1, length2))
     num_same_pert_avg = float(num_same) / (float(length1+length2)/2.0)
     # 计算不同的词在句子中所占比例
@@ -150,3 +163,63 @@ def get_sentence_diff(index, string_1, string_2):
         # print("string_2:", string_2)
     sentence_diff_list = [num_same_pert_min, num_same_pert_max, num_same_pert_avg, num_diff_x1, num_diff_x2]
     return sentence_diff_list
+
+
+def get_edit_distance(string_1, string_2):
+    matrix = [[i + j for j in range(len(string_2) + 1)] for i in range(len(string_1) + 1)]  # 动态规划矩阵
+    for i in range(1, len(string_1) + 1):
+        for j in range(1, len(string_2) + 1):
+            if string_1[i - 1] == string_2[j - 1]:
+                d = 0
+            else:
+                d = 1
+            matrix[i][j] = min(matrix[i-1][j]+1, matrix[i][j-1]+1, matrix[i-1][j-1]+d)
+    return matrix[len(string_1)][len(string_2)]
+
+
+def distance_vector_tfidf(string_list_1, string_list_2, vector_dict, tfidf_dict, tfidf_flag=True):
+    # 从词向量字典中获取词向量
+    sentence_vec_1 = get_sentence_vector(vector_dict, tfidf_dict, string_list_1, tfidf_flag=tfidf_flag)
+    sentence_vec_2 = get_sentence_vector(vector_dict, tfidf_dict, string_list_2, tfidf_flag=tfidf_flag)
+    # 计算余弦相似度
+    numerator = np.sum(np.multiply(sentence_vec_1, sentence_vec_2))
+    denominator = np.sqrt(np.sum(np.power(sentence_vec_1, 2)))*np.sqrt(np.sum(np.power(sentence_vec_2, 2)))
+    cos_distance = float(numerator)/float(denominator+0.000001)
+    # 计算曼哈顿距离
+    manhattan_distance = np.sum(np.abs(np.subtract(sentence_vec_1, sentence_vec_2)))
+    if np.isnan(manhattan_distance):
+        manhattan_distance = 300.0
+    manhattan_distance = np.log(manhattan_distance+0.000001)/5.0
+    # 计算堪培拉距离
+    canberra_distance = np.sum(np.abs(sentence_vec_1-sentence_vec_2)/np.abs(sentence_vec_1+sentence_vec_2))
+    if np.isnan(canberra_distance):
+        canberra_distance = 300.0
+    canberra_distance = np.log(canberra_distance+0.000001)/5.0
+    # 计算明可夫斯基距离
+    minkowski_distance = np.power(np.sum(np.power((sentence_vec_1-sentence_vec_2),3)), 0.33333333)
+    if np.isnan(minkowski_distance):
+        minkowski_distance = 300.0
+    minkowski_distance = np.log(minkowski_distance+0.000001)/5.0
+    # 计算欧几里得距离
+    euclidean_distance = np.sqrt(np.sum(np.power((sentence_vec_1-sentence_vec_2),2)))
+    if np.isnan(euclidean_distance):
+        euclidean_distance = 300.0
+    euclidean_distance = np.log(euclidean_distance+0.000001)/5.0
+    return cos_distance, manhattan_distance, canberra_distance, minkowski_distance, euclidean_distance
+
+
+def get_sentence_vector(vector_dict, tfidf_dict, string_list, tfidf_flag):
+    vector_sentence = 0.0
+    # vector_dim = len(vector_dict['花呗'])
+    for word in string_list:
+        word_vec = vector_dict.get(word, None)
+        word_tfidf = tfidf_dict.get(word, None)
+        if word_vec is None is None or word_tfidf is None:
+            continue
+        else:
+            if tfidf_flag:
+                vector_sentence += word_vec*word_tfidf
+            else:
+                vector_sentence += word_vec * 1.0
+    vec_sentence = vector_sentence / (np.sqrt(np.sum(np.power(vector_sentence, 2)))+0.000001)
+    return vec_sentence
