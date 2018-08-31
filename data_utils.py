@@ -1,16 +1,21 @@
 from collections import Counter
 import numpy as np
+import pickle
 
 PAD_ID = 0
 UNK_ID = 1
 _PAD = "_PAD"
 _UNK = "UNK"
+sentence_len = 39
+valid_num = 1600
+test_num = 800
 
 
-def create_dict(data):
+def create_dict(data, path):
     """
     通过训练集创建字符word和label与索引index之间的双向映射字典
     :param data:从原CSV中读取的训练数据，[index,"能不能开花呗老兄","花呗逾期了还能开通",label（0/1）]
+    :param path:存储生成的映射字典的路径
     :return:四个dict:word和label与索引index之间的双向映射字典
     """
     word_to_index = {}
@@ -34,6 +39,8 @@ def create_dict(data):
         word, _ = word_freq
         word_to_index[word] = i + 2
         index_to_word[i+2] = word
+    with open(path, "wb") as dict_f:  # 创建映射字典后进行存储
+        pickle.dump([word_to_index, index_to_word, label_to_index, index_to_label], dict_f)
     return word_to_index, index_to_word, label_to_index, index_to_label
 
 
@@ -251,3 +258,67 @@ def get_sentence_vector(vector_dict, tfidf_dict, string_list, tfidf_flag):
                 vector_sentence += word_vec * 1.0
     vec_sentence = vector_sentence / (np.sqrt(np.sum(np.power(vector_sentence, 2)))+0.000001)
     return vec_sentence
+
+
+def sentence_word_to_index(data, word_to_index, label_to_index):
+    """
+    根据word到index的映射字典将语句中的word转换成index
+    :param data: 全数据集
+    :param word_to_index:
+    :param label_to_index:
+    :return:
+    """
+    sentences_1 = []
+    sentences_2 = []
+    labels = []
+    for index, row in enumerate(data):
+        string_list_1 = list(row[1])  # 第一个句子的字符word组成的列表
+        sentence_1 = [word_to_index.get(word, UNK_ID) for word in string_list_1]
+        sentences_1.append(sentence_1)
+        string_list_2 = list(row[2])  # 第一个句子的字符word组成的列表
+        sentence_2 = [word_to_index.get(word, UNK_ID) for word in string_list_2]
+        sentences_2.append(sentence_2)
+        label = label_to_index[row[3]]
+        labels.append(label)
+    # print(sentences_1, sentences_2, labels)
+    return sentences_1, sentences_2, labels
+
+
+def shuffle_split(sentences_1, sentences_2, labels, features_vector, path):
+    """
+    将数据集随机打乱，然后按照比例分割并生成训练集、验证集、测试集。
+    :param sentences_1:
+    :param sentences_2:
+    :param labels:
+    :param features_vector: 特征工程获得的特征向量
+    :param path: dump的目标路径
+    :return:
+    """
+    # print(sentences_1, sentences_2, labels, features_vector)
+    s_1 = []
+    s_2 = []
+    l = []
+    f = []
+    len_data = len(labels)
+    random_perm = np.random.permutation(len_data)   # 对索引进行随机排序
+    # print(len(random_perm))
+    # print(len(features_vector))
+    for index in random_perm:
+        s_1.append(sentences_1[index])
+        s_2.append(sentences_2[index])
+        f.append(features_vector[index])
+        l.append(labels[index])
+    train_num = len_data - valid_num - test_num
+    # 可以在此处通过数据增强生成更多的训练数据，比如调换sentence_1和sentence_2的位置就是一个新的样本了，
+    train_data = (s_1[:train_num], s_2[:train_num], f[:train_num], l[:train_num])
+    valid_data = (s_1[train_num:train_num+valid_num], s_2[train_num:train_num+valid_num],
+                  f[train_num:train_num+valid_num], l[train_num:train_num+valid_num])
+    test_data = (s_1[train_num+valid_num:len_data], s_2[train_num+valid_num:len_data],
+                 f[train_num+valid_num:len_data], l[train_num+valid_num:len_data])
+    true_label_numbers = 0   # 记录正样本比例，用于调整不同样本的权重参数
+    for label in l:
+        true_label_numbers = true_label_numbers + 1 if label == 1 else 0
+    true_label_pert = float(true_label_numbers) / float(len_data)
+    with open(path, "wb") as f:
+        pickle.dump([train_data, valid_data, test_data, true_label_pert], f)
+    return train_data, valid_data, test_data, true_label_pert

@@ -9,13 +9,13 @@ import pickle
 # from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
 import gensim
 from gensim.models import KeyedVectors
-from data_utils import create_dict, features_engineer
+from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_split
 from utils import get_tfidf_and_save, load_tfidf_dict, load_vector
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
 tf.app.flags.DEFINE_string("tokenize_style", 'word', "the style of tokenize sentence in char or word. default is char")
-tf.app.flags.DEFINE_string("pkl_dir", "model", "dir for save pkl file")
+tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
 tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
 tf.app.flags.DEFINE_integer("embed_size", 50, "embedding size")  # 128
 tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
@@ -26,8 +26,8 @@ tf.app.flags.DEFINE_string("similiarity_strategy", 'additive', "similiarity stra
 tf.app.flags.DEFINE_string("max_pooling_style", 'chunk_max_pooling',
                            "max_pooling_style:max_pooling,k_max_pooling,chunk_max_pooling. default: chunk_max_pooling")
 tf.app.flags.DEFINE_integer("top_k", 3, "value of top k")
-# tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
-tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of traning data.")
+tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
+# tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of traning data.")
 tf.app.flags.DEFINE_integer("vocab_size", 13422, "maximum vocab size.")  # 80000
 tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")  # 0.001
 tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size for training/evaluating.")
@@ -66,11 +66,8 @@ class Main:
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 train_data = csv.reader(data_f, delimiter='\t', quotechar='|')
                 self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label = \
-                    create_dict(train_data)
+                    create_dict(train_data, word_label_dict)
                 # print(self.word_to_index)
-                with open(word_label_dict, "wb") as dict_f:  # 创建映射字典后进行存储
-                    pickle.dump([self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label],
-                                dict_f)
         self.vocab_size = len(self.word_to_index)
         self.num_classes = len(self.label_to_index)
 
@@ -78,7 +75,7 @@ class Main:
         train_valid_test = os.path.join(FLAGS.pkl_dir, "train_valid_test.pkl")
         if os.path.exists(train_valid_test):    # 若train_valid_test已被处理和存储
             with open(train_valid_test, 'rb') as data_f:
-                train_data, valid_data, test_data = pickle.load(data_f)
+                train_data, valid_data, test_data, true_label_pert = pickle.load(data_f)
         else:   # 读取数据集并创建训练集、验证集和测试集
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 all_data = csv.reader(data_f, delimiter='\t', quotechar='|')
@@ -96,6 +93,14 @@ class Main:
                 # 基于句子的长度和包含的词汇、tfidf值、fasttext词向量、word2vec词向量进行特征工程，并获取相应的特征向量
                 features_vector = features_engineer(all_data, self.word_to_index, fasttext_dict,
                                                     word2vec_dict, tfidf_dict, n_gram=8)
+            with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
+                all_data = csv.reader(data_f, delimiter='\t', quotechar='|')
+                # 语句序列化，将句子中的word映射成index，作为输入特征
+                sentences_1, sentences_2, labels = sentence_word_to_index(all_data, self.word_to_index,
+                                                                          self.label_to_index)
+                # 打乱数据、padding、添加features_vector到数据中并根据比例分割成train、valid、test数据
+                train_data, valid_data, test_data, true_label_pert = shuffle_split(sentences_1, sentences_2, labels,
+                                                                                   features_vector, train_valid_test)
 
     def get_batch_data(self):
         pass
