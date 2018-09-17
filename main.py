@@ -9,7 +9,7 @@ import pickle
 # from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
 import gensim
 from gensim.models import KeyedVectors
-from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_split
+from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_split, BatchManager
 from utils import get_tfidf_and_save, load_tfidf_dict, load_vector
 
 FLAGS = tf.app.flags.FLAGS
@@ -30,7 +30,7 @@ tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "
 # tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of traning data.")
 tf.app.flags.DEFINE_integer("vocab_size", 13422, "maximum vocab size.")  # 80000
 tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")  # 0.001
-tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size for training/evaluating.")
+tf.app.flags.DEFINE_integer("batch_size", 256, "Batch size for training/evaluating.")
 tf.app.flags.DEFINE_integer("decay_steps", 1000, "how many steps before decay learning rate.")
 tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.")
 tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
@@ -50,6 +50,9 @@ class Main:
         self.index_to_label = None  # index到label的映射字典
         self.vocab_size = None  # 字符的词典大小
         self.num_classes = None  # 类别标签数量
+        self.train_batch_manager = None  # train数据batch生成类
+        self.valid_batch_manager = None  # valid数据batch生成类
+        self.test_batch_manager = None  # test数据batch生成类
 
     def get_dict(self):
         """
@@ -98,12 +101,18 @@ class Main:
                 # 语句序列化，将句子中的word映射成index，作为输入特征
                 sentences_1, sentences_2, labels = sentence_word_to_index(all_data, self.word_to_index,
                                                                           self.label_to_index)
-                # 打乱数据、padding、添加features_vector到数据中并根据比例分割成train、valid、test数据
+                """
+                打乱数据、padding、添加features_vector到数据中并根据比例分割成train、valid、test数据，
+                train、valid、test里面又依次包含sentences_1，sentences_2，features_vector，labels四种数据
+                """
                 train_data, valid_data, test_data, true_label_pert = shuffle_split(sentences_1, sentences_2, labels,
                                                                                    features_vector, train_valid_test)
-
-    def get_batch_data(self):
-        pass
+        print("训练集大小：", len(train_data[0]), "验证集大小：", len(valid_data[0]), "正样本比例：", true_label_pert)
+        # 获取train、valid、test数据的batch生成类
+        self.train_batch_manager = BatchManager(train_data, int(FLAGS.batch_size))
+        print("训练集批次数量：", self.train_batch_manager.len_data)
+        self.valid_batch_manager = BatchManager(valid_data, int(FLAGS.batch_size))
+        self.test_batch_manager = BatchManager(test_data, int(FLAGS.batch_size))
 
 if __name__ == "__main__":
     main = Main()

@@ -1,6 +1,8 @@
 from collections import Counter
 import numpy as np
 import pickle
+import math
+import random
 
 PAD_ID = 0
 UNK_ID = 1
@@ -317,8 +319,36 @@ def shuffle_split(sentences_1, sentences_2, labels, features_vector, path):
                  f[train_num+valid_num:len_data], l[train_num+valid_num:len_data])
     true_label_numbers = 0   # 记录正样本比例，用于调整不同样本的权重参数
     for label in l:
-        true_label_numbers = true_label_numbers + 1 if label == 1 else 0
+        true_label_numbers += 1 if label == 1 else 0
     true_label_pert = float(true_label_numbers) / float(len_data)
     with open(path, "wb") as f:
         pickle.dump([train_data, valid_data, test_data, true_label_pert], f)
     return train_data, valid_data, test_data, true_label_pert
+
+
+class BatchManager(object):
+    """
+    用于生成batch数据的batch管理类
+    """
+    def __init__(self, data,  batch_size):
+        self.batch_data = self.get_batch(data, batch_size)  # 根据batch_size生成所有batch数据并存入batch_data列表
+        self.len_data = len(self.batch_data)    # batch数量
+
+    @staticmethod
+    def get_batch(data, batch_size):
+        num_batch = int(math.ceil(len(data[0]) / batch_size))
+        batch_data = list()
+        for i in range(num_batch):
+            # print(i)
+            sentences_1 = data[0][i*batch_size:(i+1)*batch_size]
+            sentences_2 = data[1][i*batch_size:(i+1)*batch_size]
+            features_vector = data[2][i*batch_size:(i+1)*batch_size]
+            labels = data[3][i*batch_size:(i+1)*batch_size]
+            batch_data.append([sentences_1, sentences_2, features_vector, labels])
+        return batch_data
+
+    def iter_batch(self, shuffle=False):
+        if shuffle:
+            random.shuffle(self.batch_data)
+        for idx in range(self.len_data):
+            yield self.batch_data[idx]

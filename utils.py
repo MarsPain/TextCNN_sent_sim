@@ -6,6 +6,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 def get_tfidf_and_save(data, tfidf_path):
+    """
+    获取tfidf值并写入到文件中
+    :param data:
+    :param tfidf_path:
+    :return:
+    """
     corpus = []  # 用于生成tfidf值的语料库
     for i, row in enumerate(data):
         str1 = " ".join(jieba.cut(row[1]))
