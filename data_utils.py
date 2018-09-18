@@ -352,3 +352,24 @@ class BatchManager(object):
             random.shuffle(self.batch_data)
         for idx in range(self.len_data):
             yield self.batch_data[idx]
+
+
+def init_weights_dict(weights_dict):
+    weights_dict[1] = 0.2
+    weights_dict[0] = 1.0
+    return weights_dict
+
+
+def get_weights_for_current_batch(answer_list, weights_dict):
+    """
+    get weights for current batch
+    :param  answer_list: a numpy array contain labels for a batch
+    :param  weights_dict: a dict that contain weights for all labels
+    :return: a list. length is label size.
+    """
+    weights_list_batch = list(np.ones((len(answer_list))))
+    answer_list = list(answer_list)
+    for i, label in enumerate(answer_list):
+        acc = weights_dict[label]
+        weights_list_batch[i] = min(1.3, 1.0/(acc+0.000001))
+    return weights_list_batch

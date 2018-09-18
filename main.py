@@ -11,7 +11,8 @@ import pickle
 # from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
 import gensim
 from gensim.models import KeyedVectors
-from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_split, BatchManager
+from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_split, BatchManager, init_weights_dict,\
+    get_weights_for_current_batch
 from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_embedding
 from model import TextCNN
 
@@ -126,6 +127,25 @@ class Main:
         with tf.Session(config=config) as sess:
             textCNN = self.create_model(sess)
             curr_epoch = sess.run(textCNN.epoch_step)
+            iteration = 0
+            best_acc = 0.60
+            best_f1_score = 0.20
+            weights_dict = init_weights_dict(self.label_to_index)   # 初始化类别权重参数矩阵
+            for epoch in range(curr_epoch, FLAGS.num_epochs):
+                loss, eval_acc, counter = 0.0, 0.0, 0
+                for batch in self.train_batch_manager.iter_batch(shuffle=True):
+                    iteration = iteration + 1
+                    input_x1, input_x2, input_bluescores, input_y = batch
+                    weights = get_weights_for_current_batch(input_y, weights_dict)   # 更新类别权重参数矩阵
+                    feed_dict = {textCNN.input_x1: input_x1, textCNN.input_x2: input_x2, textCNN.input_bluescores: input_bluescores, textCNN.input_y: input_y,
+                                 textCNN.weights: np.asarray(weights), textCNN.dropout_keep_prob: FLAGS.dropout_keep_prob,
+                                 textCNN.iter: iteration, textCNN.tst: not FLAGS.is_training}
+                    curr_loss, curr_acc, lr, _ = sess.run([textCNN.loss_val, textCNN.accuracy, textCNN.learning_rate, textCNN.train_op], feed_dict)
+                    loss, eval_acc, counter = loss+curr_loss, eval_acc+curr_acc, counter+1
+                    if counter % 100 == 0:
+                        print("Epoch %d\tBatch %d\tTrain Loss:%.3f\tAcc:%.3f\tLearning rate:%.5f" % (epoch, counter, loss/float(counter), eval_acc/float(counter), lr))
+                print("going to increment epoch counter....")
+                sess.run(textCNN.epoch_increment)
 
     def create_model(self, sess):
         text_cnn = TextCNN(filter_sizes, FLAGS.num_filters, self.num_classes, FLAGS.learning_rate, FLAGS.batch_size, FLAGS.decay_steps,

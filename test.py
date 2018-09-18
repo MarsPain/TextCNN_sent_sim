@@ -20,3 +20,7 @@ import pandas as pd
 # print(l.shape)
 # l = np.concatenate(l, 1)
 # print(l.shape)
+
+l = [1, 2, 3, 4]
+a, b, c, d = l
+print(a, b, c, d)
