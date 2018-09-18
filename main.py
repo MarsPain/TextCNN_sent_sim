@@ -4,13 +4,16 @@ import numpy as np
 # from data_util import create_vocabulary,load_data
 import os
 import csv
+import re
+import codecs
 import random
 import pickle
 # from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
 import gensim
 from gensim.models import KeyedVectors
 from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_split, BatchManager
-from utils import get_tfidf_and_save, load_tfidf_dict, load_vector
+from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_embedding
+from model import TextCNN
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
@@ -37,7 +40,8 @@ tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,fals
 tf.app.flags.DEFINE_integer("num_epochs", 20, "number of epochs to run.")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.")
 tf.app.flags.DEFINE_boolean("use_pretrained_embedding", False, "whether to use embedding or not.")
-tf.app.flags.DEFINE_string("word2vec_model_path", "data/fasttext_fin_model_50.vec", "word2vec's vocabulary and vectors")
+tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's vocabulary and vectors")
+tf.app.flags.DEFINE_string("fasttext_model_path", "data/fasttext_fin_model_50.vec", "fasttext's vocabulary and vectors")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "dropout keep probability")
 filter_sizes = [2, 3, 4]
 
@@ -50,6 +54,7 @@ class Main:
         self.index_to_label = None  # index到label的映射字典
         self.vocab_size = None  # 字符的词典大小
         self.num_classes = None  # 类别标签数量
+        self.features_vector_size = None    # 特征工程得到的特征向量的维度
         self.train_batch_manager = None  # train数据batch生成类
         self.valid_batch_manager = None  # valid数据batch生成类
         self.test_batch_manager = None  # test数据batch生成类
@@ -107,12 +112,48 @@ class Main:
                 """
                 train_data, valid_data, test_data, true_label_pert = shuffle_split(sentences_1, sentences_2, labels,
                                                                                    features_vector, train_valid_test)
+        self.features_vector_size = len(train_data[3])
         print("训练集大小：", len(train_data[0]), "验证集大小：", len(valid_data[0]), "正样本比例：", true_label_pert)
         # 获取train、valid、test数据的batch生成类
         self.train_batch_manager = BatchManager(train_data, int(FLAGS.batch_size))
         print("训练集批次数量：", self.train_batch_manager.len_data)
         self.valid_batch_manager = BatchManager(valid_data, int(FLAGS.batch_size))
         self.test_batch_manager = BatchManager(test_data, int(FLAGS.batch_size))
+
+    def train(self):
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        with tf.Session(config=config) as sess:
+            textCNN = self.create_model(sess)
+            curr_epoch = sess.run(textCNN.epoch_step)
+
+    def create_model(self, sess):
+        text_cnn = TextCNN(filter_sizes, FLAGS.num_filters, self.num_classes, FLAGS.learning_rate, FLAGS.batch_size, FLAGS.decay_steps,
+                           FLAGS.decay_rate, FLAGS.sentence_len, self.vocab_size, FLAGS.embed_size, FLAGS.is_training, model=FLAGS.model_name,
+                           similiarity_strategy=FLAGS.similiarity_strategy, top_k=FLAGS.top_k, max_pooling_style=FLAGS.max_pooling_style,
+                           length_data_mining_features=self.features_vector_size)
+        saver = tf.train.Saver()
+        if os.path.exists(FLAGS.ckpt_dir+"checkpoint"):
+            print("Restoring Variables from Checkpoint.")
+            saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
+            if FLAGS.decay_lr_flag:
+                for i in range(2):  # decay learning rate if necessary.
+                    print(i, "Going to decay learning rate by half.")
+                    sess.run(text_cnn.learning_rate_decay_half_op)
+        else:
+            print('Initializing Variables')
+            sess.run(tf.global_variables_initializer())
+            if not os.path.exists(FLAGS.ckpt_dir):
+                os.makedirs(FLAGS.ckpt_dir)
+            if FLAGS.use_pretrained_embedding:  # 加载预训练的词向量
+                print("===>>>going to use pretrained word embeddings...")
+                old_emb_matrix = sess.run(text_cnn.Embedding.read_value())
+                new_emb_matrix = load_word_embedding(old_emb_matrix, FLAGS.word2vec_model_path, FLAGS.embed_size, self.index_to_word)
+                word_embedding = tf.constant(new_emb_matrix, dtype=tf.float32)  # 转为tensor
+                t_assign_embedding = tf.assign(text_cnn.Embedding, word_embedding)  # 将word_embedding复制给text_cnn.Embedding
+                sess.run(t_assign_embedding)
+                print("using pre-trained word emebedding.ended...")
+        return text_cnn
 
 if __name__ == "__main__":
     main = Main()

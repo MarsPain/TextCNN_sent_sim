@@ -1,6 +1,8 @@
 from collections import Counter
 import os
 import jieba
+import codecs
+import re
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -63,3 +65,39 @@ def load_vector(path):
             vector_dict[word_vec[0]] = np.asarray(vec_list)
     # print("vector_dict:", vector_dict)
     return vector_dict
+
+
+def load_word_embedding(emb_matrix, word2vec_model_path, embed_size, index_to_word):
+        print("Loading pretrained embeddings from", word2vec_model_path)
+        pre_trained = {}
+        emb_invalid = 0
+        for i, line in enumerate(codecs.open(word2vec_model_path, 'r', 'utf-8')):
+            line = line.rstrip().split()
+            if len(line) == embed_size + 1:
+                pre_trained[line[0]] = np.asarray([float(x) for x in line[1:]]).astype(np.float32)
+            else:
+                emb_invalid += 1
+        if emb_invalid > 0:
+            print('WARNING: %i invalid lines' % emb_invalid)
+        c_found = 0
+        c_lower = 0
+        c_zeros = 0
+        n_words = len(index_to_word)
+        for i in range(n_words):
+            word = index_to_word[i]
+            if word in pre_trained:
+                emb_matrix[i] = pre_trained[word]
+                c_found += 1
+            elif word.lower() in pre_trained:
+                emb_matrix[i] = pre_trained[word.lower()]
+                c_lower += 1
+            elif re.sub('\d', '0', word.lower()) in pre_trained:
+                emb_matrix[i] = pre_trained[
+                    re.sub('\d', '0', word.lower())
+                ]
+                c_zeros += 1
+        print('Loaded %i pretrained embeddings.' % len(pre_trained))
+        print('%i / %i (%.4f%%) words have been initialized with ''pretrained embeddings.' %
+              (c_found + c_lower + c_zeros, n_words, 100. * (c_found + c_lower + c_zeros) / n_words))
+        print('%i found directly, %i after lowercasing, ''%i after lowercasing + zero.' % (c_found, c_lower, c_zeros))
+        return emb_matrix

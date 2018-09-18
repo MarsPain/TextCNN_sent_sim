@@ -41,8 +41,8 @@ class TextCNN:
         self.iter = tf.placeholder(tf.int32)  # 记录training iteration
         self.tst = tf.placeholder(tf.bool)
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
-        self.epoch_step = tf.Variable(0,trainable=False,name="Epoch_Step")
-        self.epoch_increment = tf.assign(self.epoch_step,tf.add(self.epoch_step,tf.constant(1)))
+        self.epoch_step = tf.Variable(0, trainable=False, name="Epoch_Step")
+        self.epoch_increment = tf.assign(self.epoch_step, tf.add(self.epoch_step, tf.constant(1)))
         self.b1_conv1 = tf.Variable(tf.ones([self.num_filters]) / 10)
         self.b1_conv2 = tf.Variable(tf.ones([self.num_filters]) / 10)
         self.b1 = tf.Variable(tf.ones([self.hidden_size]) / 10)
