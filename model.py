@@ -30,17 +30,18 @@ class TextCNN:
         self.top_k = top_k
         self.length_data_mining_features = length_data_mining_features
         # 设置占位符和变量
+        self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size], initializer=self.initializer)
         self.input_x1 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x1")  # sentences_1
-        print("input_x1:", self.input_x1)
+        # print("input_x1:", self.input_x1)
         self.input_x2 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x2")  # sentences_2
-        print("input_x2:", self.input_x2)
+        # print("input_x2:", self.input_x2)
         self.input_bluescores = tf.placeholder(tf.float32, [None, self.length_data_mining_features],
                                                name="input_bluescores")  # features_vector
-        print("input_bluescores:", self.input_bluescores)
+        # print("input_bluescores:", self.input_bluescores)
         self.input_y = tf.placeholder(tf.int32, [None, ], name="input_y")  # labels:[None,num_classes]
-        print("input_y:", self.input_y)
+        # print("input_y:", self.input_y)
         self.weights = tf.placeholder(tf.float32, [None, ], name="weights_label")  # 标签权重
-        print("weights:", self.weights)
+        # print("weights:", self.weights)
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
         self.iter = tf.placeholder(tf.int32)  # 记录training iteration
         self.tst = tf.placeholder(tf.bool)
@@ -55,7 +56,6 @@ class TextCNN:
         self.decay_steps, self.decay_rate = decay_steps, decay_rate
 
         # 构造图
-        self.instantiate_weights()
         self.logits = self.inference_cnn()   # 获得预测值（one-hot向量：[batch_size, num_classes]）
         # if not is_training:
         #     return
@@ -64,20 +64,6 @@ class TextCNN:
         self.predictions = tf.argmax(self.logits, 1, name="predictions")
         correct_prediction = tf.equal(tf.cast(self.predictions, tf.int32), self.input_y)
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name="Accuracy")
-
-    def instantiate_weights(self):
-        with tf.name_scope("embedding"):  # embedding matrix
-            # [vocab_size,embed_size] tf.random_uniform([self.vocab_size, self.embed_size],-1.0,1.0)
-            self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size],
-                                             initializer=self.initializer)
-            self.W_projection = tf.get_variable("W_projection", shape=[self.hidden_size*2, self.num_classes],
-                                                initializer=self.initializer)  # [embed_size,label_size]
-            self.b_projection = tf.get_variable("b_projection", shape=[self.num_classes])   # [label_size]
-            self.W_LR=tf.get_variable("W_LR", shape=[self.length_data_mining_features, self.num_classes])
-            self.b_LR = tf.get_variable("b_LR", shape=[self.num_classes])       # [label_size]
-            self.W_projection_bilstm = tf.get_variable("W_projection_bilstm", shape=[self.hidden_size, self.num_classes],
-                                                       initializer=self.initializer)  # [embed_size,label_size]
-            self.b_projection_bilstm = tf.get_variable("b_projection_bilstm", shape=[self.num_classes])  # [label_size]
 
     def inference_cnn(self):
         """
@@ -129,7 +115,7 @@ class TextCNN:
                 pooled_outputs.append(h)
         # 5. combine all pooled features, and flatten the feature.output' shape is a [1,None]
         h_pool = tf.concat(pooled_outputs, 1)  # shape:[batch_size, num_filters_total*self.k]
-        h_pool_flat = tf.reshape(h_pool, [-1, self.num_filters_total*3])  # shape should be:[None,num_filters_total]
+        h_pool_flat = tf.reshape(h_pool, [-1, self.num_filters_total*self.top_k])  # shape should be:[None,num_filters_total]
         # print("h_pool_flat:", h_pool_flat)
         # 6. add dropout
         with tf.name_scope("dropout"):

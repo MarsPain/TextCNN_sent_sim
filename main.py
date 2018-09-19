@@ -23,7 +23,7 @@ tf.app.flags.DEFINE_string("model_name", "dual_cnn", "which model to use:dual_bi
 tf.app.flags.DEFINE_string("tokenize_style", 'word', "the style of tokenize sentence in char or word. default is char")
 tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
 tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
-tf.app.flags.DEFINE_integer("embed_size", 50, "embedding size")  # 128
+tf.app.flags.DEFINE_integer("embed_size", 128, "embedding size")  # 128
 tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
 tf.app.flags.DEFINE_integer("sentence_len", 39, "max sentence length. length should be divide by 3, "
                                                 "which is used by k max pooling.")
@@ -40,7 +40,7 @@ tf.app.flags.DEFINE_integer("batch_size", 256, "Batch size for training/evaluati
 tf.app.flags.DEFINE_integer("decay_steps", 1000, "how many steps before decay learning rate.")
 tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.")
 tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
-tf.app.flags.DEFINE_integer("num_epochs", 20, "number of epochs to run.")
+tf.app.flags.DEFINE_integer("num_epochs", 50, "number of epochs to run.")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.")
 tf.app.flags.DEFINE_boolean("use_pretrained_embedding", False, "whether to use embedding or not.")
 tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's vocabulary and vectors")
@@ -182,7 +182,7 @@ class Main:
                         saver.save(sess, save_path, global_step=epoch)
                         best_acc = eval_accc
                         best_f1_score = f1_scoree
-                    if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 2 or epoch == 5 or epoch == 9 or epoch == 13)):
+                    if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40)):
                         for i in range(2):  # decay learning rate if necessary.
                             print(i, "Going to decay learning rate by half.")
                             sess.run(textCNN.learning_rate_decay_half_op)
