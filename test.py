@@ -24,3 +24,6 @@ import pandas as pd
 # l = [1, 2, 3, 4]
 # a, b, c, d = l
 # print(a, b, c, d)
+
+weights = np.ones(5)
+print(weights)

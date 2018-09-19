@@ -122,6 +122,8 @@ class Main:
         self.train_batch_manager = BatchManager(train_data, int(FLAGS.batch_size))
         print("训练集批次数量：", self.train_batch_manager.len_data)
         self.valid_batch_manager = BatchManager(valid_data, int(FLAGS.batch_size))
+        for batch in self.valid_batch_manager.iter_batch():
+            print(len(batch[0]))
         self.test_batch_manager = BatchManager(test_data, int(FLAGS.batch_size))
 
     def train(self):
@@ -222,9 +224,16 @@ class Main:
         eval_loss, eval_accc, eval_counter = 0.0, 0.0, 0
         eval_true_positive, eval_false_positive, eval_true_negative, eval_false_negative = 0, 0, 0, 0
         weights_label = {}  # weight_label[label_index]=(number,correct)
-        weights = np.ones((FLAGS.batch_size))   # weights的shape要与batch对上
         for batch in batch_manager.iter_batch(shuffle=True):
             eval_x1, eval_x2, eval_blue_scores, eval_y = batch
+            eval_x1 = np.asarray(eval_x1)
+            eval_x2 = np.asarray(eval_x2)
+            eval_blue_scores = np.asarray(eval_blue_scores)
+            eval_y = np.asarray(eval_y)
+            weights = np.ones(eval_x1.shape[0])   # weights的shape要与batch对上
+            # print(weights.shape)
+            # print(eval_x1.shape)
+            # print(eval_x2.shape)
             feed_dict = {textCNN.input_x1: eval_x1, textCNN.input_x2: eval_x2, textCNN.input_bluescores: eval_blue_scores, textCNN.input_y: eval_y,
                          textCNN.weights: weights, textCNN.dropout_keep_prob: 1.0, textCNN.iter: iteration, textCNN.tst: True}
             curr_eval_loss, curr_accc, logits = sess.run([textCNN.loss_val, textCNN.accuracy, textCNN.logits], feed_dict)
