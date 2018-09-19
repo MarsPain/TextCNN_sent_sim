@@ -373,3 +373,77 @@ def get_weights_for_current_batch(answer_list, weights_dict):
         acc = weights_dict[label]
         weights_list_batch[i] = min(1.3, 1.0/(acc+0.000001))
     return weights_list_batch
+
+
+def compute_confuse_matrix(logit, label):
+    """
+    compoute f1_score.
+    :param logits: [batch_size,label_size]
+    :param evalY: [batch_size,label_size]
+    :return:
+    """
+    length = len(label)
+    true_positive = 0  # TP:if label is true('1'), and predict is true('1')
+    false_positive = 0  # FP:if label is false('0'),but predict is ture('1')
+    true_negative = 0  # TN:if label is false('0'),and predict is false('0')
+    false_negative = 0  # FN:if label is false('0'),but predict is true('1')
+    for i in range(length):
+        predict = np.argmax(logit[i])
+        if predict == 1 and label[i] == 1:
+            true_positive += 1
+        elif predict == 1 and label[i] == 0:
+            false_positive += 1
+        elif predict == 0 and label[i] == 0:
+            true_negative += 1
+        elif predict == 0 and label[i] == 1:
+            false_negative += 1
+    return true_positive, false_positive, true_negative, false_negative
+
+
+def write_predict_error_to_file(file_object, logit, label, index_to_word, x1_index_list, x2_index_list):
+    length = len(label)
+    for i in range(length):
+        predict = np.argmax(logit[i])
+        if predict != label[i]:
+            x1 = [index_to_word[x] for x in list(x1_index_list[i])]
+            x2 = [index_to_word[x] for x in list(x2_index_list[i])]
+            file_object.write("-------------------------------------------------------\n")
+            file_object.write("label:"+str(label[i])+";predict:"+str(predict)+"\n")
+            file_object.write("".join(x1)+"\n")
+            file_object.write("".join(x2) + "\n")
+
+
+def compute_labels_weights(weights_label, logits, labels):
+    """
+    计算每一轮epoch的类别权重参数并进行更新
+    :param weights_label:a dict
+    :param logit: [None,Vocabulary_size]
+    :param label: [None,]
+    :return:
+    """
+    for i in range(len(labels)):
+        label = labels[i]
+        label_predict = np.argmax(logits[i])
+        weight = weights_label.get(label, None)
+        if weight == None:
+            if label_predict == label:
+                weights_label[label] = (1, 1)
+            else:
+                weights_label[label] = (1, 0)
+        else:
+            number = weight[0]
+            correct = weight[1]
+            number += 1
+            if label_predict == label:
+                correct += 1
+            weights_label[label] = (number, correct)
+    return weights_label
+
+
+def get_weights_label_as_standard_dict(weights_label):
+    weights_dict = {}
+    for k, v in weights_label.items():
+        count, correct = v
+        weights_dict[k] = float(correct)/float(count)
+    print("weight_dict(print accuracy):", weights_dict)
+    return weights_dict

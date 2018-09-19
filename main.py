@@ -12,7 +12,8 @@ import pickle
 import gensim
 from gensim.models import KeyedVectors
 from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_split, BatchManager, init_weights_dict,\
-    get_weights_for_current_batch
+    get_weights_for_current_batch, compute_confuse_matrix, write_predict_error_to_file, compute_labels_weights,\
+    get_weights_label_as_standard_dict
 from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_embedding
 from model import TextCNN
 
@@ -125,7 +126,7 @@ class Main:
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
-            textCNN = self.create_model(sess)
+            textCNN, saver = self.create_model(sess)
             curr_epoch = sess.run(textCNN.epoch_step)
             iteration = 0
             best_acc = 0.60
@@ -133,8 +134,9 @@ class Main:
             weights_dict = init_weights_dict(self.label_to_index)   # 初始化类别权重参数矩阵
             for epoch in range(curr_epoch, FLAGS.num_epochs):
                 loss, eval_acc, counter = 0.0, 0.0, 0
+                # train
                 for batch in self.train_batch_manager.iter_batch(shuffle=True):
-                    iteration = iteration + 1
+                    iteration += 1
                     input_x1, input_x2, input_bluescores, input_y = batch
                     weights = get_weights_for_current_batch(input_y, weights_dict)   # 更新类别权重参数矩阵
                     feed_dict = {textCNN.input_x1: input_x1, textCNN.input_x2: input_x2, textCNN.input_bluescores: input_bluescores, textCNN.input_y: input_y,
@@ -142,10 +144,31 @@ class Main:
                                  textCNN.iter: iteration, textCNN.tst: not FLAGS.is_training}
                     curr_loss, curr_acc, lr, _ = sess.run([textCNN.loss_val, textCNN.accuracy, textCNN.learning_rate, textCNN.train_op], feed_dict)
                     loss, eval_acc, counter = loss+curr_loss, eval_acc+curr_acc, counter+1
-                    if counter % 100 == 0:
+                    if counter % 100 == 0:  # steps_check
                         print("Epoch %d\tBatch %d\tTrain Loss:%.3f\tAcc:%.3f\tLearning rate:%.5f" % (epoch, counter, loss/float(counter), eval_acc/float(counter), lr))
                 print("going to increment epoch counter....")
                 sess.run(textCNN.epoch_increment)
+                # valid
+                if epoch % FLAGS.validate_every == 0:
+                    eval_loss, eval_accc, f1_scoree, precision, recall, weights_label = self.evaluate(sess, textCNN, self.valid_batch_manager, iteration)
+                    weights_dict = get_weights_label_as_standard_dict(weights_label)
+                    print("label accuracy(used for label weight):==========>>>>", weights_dict)
+                    print("【Validation】Epoch %d\t Loss:%.3f\tAcc %.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f" % (epoch, eval_loss, eval_accc, f1_scoree, precision, recall))
+                    # save model to checkpoint
+                    if eval_accc > best_acc and f1_scoree > best_f1_score:
+                        save_path = FLAGS.ckpt_dir + "/model.ckpt"
+                        print("going to save model. eval_f1_score:", f1_scoree, ";previous best f1 score:", best_f1_score,
+                              ";eval_acc", str(eval_accc), ";previous best_acc:", str(best_acc))
+                        saver.save(sess, save_path, global_step=epoch)
+                        best_acc = eval_accc
+                        best_f1_score = f1_scoree
+                    if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 2 or epoch == 5 or epoch == 9 or epoch == 13)):
+                        for i in range(2):  # decay learning rate if necessary.
+                            print(i, "Going to decay learning rate by half.")
+                            sess.run(textCNN.learning_rate_decay_half_op)
+            # test
+            test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, textCNN, self.valid_batch_manager, iteration)
+            print("Test Loss:%.3f\tAcc:%.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f:" % (test_loss, acc_t, f1_score_t, precision, recall))
 
     def create_model(self, sess):
         text_cnn = TextCNN(filter_sizes, FLAGS.num_filters, self.num_classes, FLAGS.learning_rate, FLAGS.batch_size, FLAGS.decay_steps,
@@ -173,9 +196,35 @@ class Main:
                 t_assign_embedding = tf.assign(text_cnn.Embedding, word_embedding)  # 将word_embedding复制给text_cnn.Embedding
                 sess.run(t_assign_embedding)
                 print("using pre-trained word emebedding.ended...")
-        return text_cnn
+        return text_cnn, saver
+
+    def evaluate(self, sess, textCNN, batch_manager, iteration):
+        small_value = 0.00001
+        file_object = open('data/log_predict_error.txt', 'a')
+        eval_loss, eval_accc, eval_counter = 0.0, 0.0, 0
+        eval_true_positive, eval_false_positive, eval_true_negative, eval_false_negative = 0, 0, 0, 0
+        weights_label = {}  # weight_label[label_index]=(number,correct)
+        weights = np.ones((FLAGS.batch_size))   # weights的shape要与batch对上
+        for batch in batch_manager.iter_batch(shuffle=True):
+            eval_x1, eval_x2, eval_blue_scores, eval_y = batch
+            feed_dict = {textCNN.input_x1: eval_x1, textCNN.input_x2: eval_x2, textCNN.input_bluescores: eval_blue_scores, textCNN.input_y: eval_y,
+                         textCNN.weights: weights, textCNN.dropout_keep_prob: 1.0, textCNN.iter: iteration, textCNN.tst: True}
+            curr_eval_loss, curr_accc, logits = sess.run([textCNN.loss_val, textCNN.accuracy, textCNN.logits], feed_dict)
+            true_positive, false_positive, true_negative, false_negative = compute_confuse_matrix(logits, eval_y)
+            write_predict_error_to_file(file_object, logits, eval_y, self.index_to_word, eval_x1, eval_x2)
+            eval_loss, eval_accc, eval_counter = eval_loss+curr_eval_loss, eval_accc+curr_accc, eval_counter+1
+            eval_true_positive, eval_false_positive = eval_true_positive+true_positive, eval_false_positive+false_positive
+            eval_true_negative, eval_false_negative = eval_true_negative+true_negative, eval_false_negative+false_negative
+            weights_label = compute_labels_weights(weights_label, logits, eval_y)
+        print("true_positive:", eval_true_positive, ";false_positive:", eval_false_positive, ";true_negative:", eval_true_negative, ";false_negative:", eval_false_negative)
+        p = float(eval_true_positive)/float(eval_true_positive+eval_false_positive+small_value)
+        r = float(eval_true_positive)/float(eval_true_positive+eval_false_negative+small_value)
+        f1_score = (2*p*r)/(p+r+small_value)
+        print("eval_counter:", eval_counter, ";eval_acc:", eval_accc)
+        return eval_loss/float(eval_counter), eval_accc/float(eval_counter), f1_score, p, r, weights_label
 
 if __name__ == "__main__":
     main = Main()
     main.get_dict()
     main.get_data()
+    main.train()
