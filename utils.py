@@ -79,13 +79,16 @@ def load_word_embedding(emb_matrix, word2vec_model_path, embed_size, index_to_wo
                 emb_invalid += 1
         if emb_invalid > 0:
             print('WARNING: %i invalid lines' % emb_invalid)
+        # print(pre_trained)
         c_found = 0
         c_lower = 0
         c_zeros = 0
         n_words = len(index_to_word)
         for i in range(n_words):
             word = index_to_word[i]
+            # print(word)
             if word in pre_trained:
+                # print("YES!!!!!!")
                 emb_matrix[i] = pre_trained[word]
                 c_found += 1
             elif word.lower() in pre_trained:

@@ -20,10 +20,9 @@ from model import TextCNN
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
 tf.app.flags.DEFINE_string("model_name", "dual_cnn", "which model to use:dual_bilstm_cnn,dual_bilstm,dual_cnn,mix. default is:mix")
-tf.app.flags.DEFINE_string("tokenize_style", 'word', "the style of tokenize sentence in char or word. default is char")
 tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
 tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
-tf.app.flags.DEFINE_integer("embed_size", 128, "embedding size")  # 128
+tf.app.flags.DEFINE_integer("embed_size", 100, "embedding size")  # 128
 tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
 tf.app.flags.DEFINE_integer("sentence_len", 39, "max sentence length. length should be divide by 3, "
                                                 "which is used by k max pooling.")
@@ -42,8 +41,9 @@ tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.")
 tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
 tf.app.flags.DEFINE_integer("num_epochs", 50, "number of epochs to run.")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.")
-tf.app.flags.DEFINE_boolean("use_pretrained_embedding", False, "whether to use embedding or not.")
-tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's vocabulary and vectors")
+tf.app.flags.DEFINE_boolean("use_pretrained_embedding", True, "whether to use embedding or not.")
+# tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's vocabulary and vectors")
+tf.app.flags.DEFINE_string("word2vec_model_path", "data/wiki_100.utf8", "word2vec's vocabulary and vectors")
 tf.app.flags.DEFINE_string("fasttext_model_path", "data/fasttext_fin_model_50.vec", "fasttext's vocabulary and vectors")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "dropout keep probability")
 filter_sizes = [2, 3, 4]
@@ -78,7 +78,7 @@ class Main:
                 train_data = csv.reader(data_f, delimiter='\t', quotechar='|')
                 self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label = \
                     create_dict(train_data, word_label_dict)
-                # print(self.word_to_index)
+                print(self.word_to_index)
         self.vocab_size = len(self.word_to_index)
         self.num_classes = len(self.label_to_index)
 
@@ -122,8 +122,6 @@ class Main:
         self.train_batch_manager = BatchManager(train_data, int(FLAGS.batch_size))
         print("训练集批次数量：", self.train_batch_manager.len_data)
         self.valid_batch_manager = BatchManager(valid_data, int(FLAGS.batch_size))
-        for batch in self.valid_batch_manager.iter_batch():
-            print(len(batch[0]))
         self.test_batch_manager = BatchManager(test_data, int(FLAGS.batch_size))
 
     def train(self):
