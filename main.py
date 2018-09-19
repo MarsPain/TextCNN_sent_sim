@@ -18,33 +18,28 @@ from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_em
 from model import TextCNN
 
 FLAGS = tf.app.flags.FLAGS
+# 文件路径参数
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
-tf.app.flags.DEFINE_string("model_name", "dual_cnn", "which model to use:dual_bilstm_cnn,dual_bilstm,dual_cnn,mix. default is:mix")
 tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
-tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
-tf.app.flags.DEFINE_integer("embed_size", 100, "embedding size")  # 128
-tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
-tf.app.flags.DEFINE_integer("sentence_len", 39, "max sentence length. length should be divide by 3, "
-                                                "which is used by k max pooling.")
-tf.app.flags.DEFINE_string("similiarity_strategy", 'additive', "similiarity strategy: additive or multiply. "
-                                                               "default is additive")  # to tackle miss typed words
-tf.app.flags.DEFINE_string("max_pooling_style", 'chunk_max_pooling',
-                           "max_pooling_style:max_pooling,k_max_pooling,chunk_max_pooling. default: chunk_max_pooling")
-tf.app.flags.DEFINE_integer("top_k", 1, "value of top k")
 tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
-# tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of traning data.")
-tf.app.flags.DEFINE_integer("vocab_size", 13422, "maximum vocab size.")  # 80000
-tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")  # 0.001
-tf.app.flags.DEFINE_integer("batch_size", 256, "Batch size for training/evaluating.")
-tf.app.flags.DEFINE_integer("decay_steps", 1000, "how many steps before decay learning rate.")
-tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.")
-tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
-tf.app.flags.DEFINE_integer("num_epochs", 50, "number of epochs to run.")
-tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.")
-tf.app.flags.DEFINE_boolean("use_pretrained_embedding", True, "whether to use embedding or not.")
+# tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of demo data.")
 # tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's vocabulary and vectors")
 tf.app.flags.DEFINE_string("word2vec_model_path", "data/wiki_100.utf8", "word2vec's vocabulary and vectors")
 tf.app.flags.DEFINE_string("fasttext_model_path", "data/fasttext_fin_model_50.vec", "fasttext's vocabulary and vectors")
+# 模型参数
+tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
+tf.app.flags.DEFINE_integer("num_epochs", 50, "number of epochs to run.")
+tf.app.flags.DEFINE_integer("batch_size", 256, "Batch size for training/evaluating.")
+tf.app.flags.DEFINE_boolean("use_pretrained_embedding", True, "whether to use embedding or not.")
+tf.app.flags.DEFINE_integer("embed_size", 100, "embedding size")
+tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
+tf.app.flags.DEFINE_integer("sentence_len", 39, "max sentence length. length should be divide by 3,""which is used by k max pooling.")
+tf.app.flags.DEFINE_integer("top_k", 1, "value of top k for k-max polling")
+tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")  # 0.001
+tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
+tf.app.flags.DEFINE_integer("decay_steps", 1000, "how many steps before decay learning rate.")
+tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.")
+tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "dropout keep probability")
 filter_sizes = [2, 3, 4]
 
@@ -190,8 +185,7 @@ class Main:
 
     def create_model(self, sess):
         text_cnn = TextCNN(filter_sizes, FLAGS.num_filters, self.num_classes, FLAGS.learning_rate, FLAGS.batch_size, FLAGS.decay_steps,
-                           FLAGS.decay_rate, FLAGS.sentence_len, self.vocab_size, FLAGS.embed_size, FLAGS.is_training, model=FLAGS.model_name,
-                           similiarity_strategy=FLAGS.similiarity_strategy, top_k=FLAGS.top_k, max_pooling_style=FLAGS.max_pooling_style,
+                           FLAGS.decay_rate, FLAGS.sentence_len, self.vocab_size, FLAGS.embed_size, FLAGS.is_training, top_k=FLAGS.top_k,
                            length_data_mining_features=self.features_vector_size)
         saver = tf.train.Saver()
         if os.path.exists(FLAGS.ckpt_dir+"checkpoint"):

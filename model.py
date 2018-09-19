@@ -4,11 +4,10 @@ from tensorflow.contrib import rnn
 
 
 class TextCNN:
-    def __init__(self, filter_sizes, num_filters, num_classes, learning_rate, batch_size, decay_steps,
-                 decay_rate, sequence_length, vocab_size, embed_size,
-                 is_training, initializer=tf.random_normal_initializer(stddev=0.1), clip_gradients=3.0,
-                 decay_rate_big=0.50, model='dual_bilstm_cnn', similiarity_strategy='additive',
-                 top_k=3, max_pooling_style='k_max_pooling', length_data_mining_features=25):
+    def __init__(self, filter_sizes, num_filters, num_classes, learning_rate, batch_size, decay_steps,decay_rate, sequence_length,
+                 vocab_size, embed_size, is_training, initializer=tf.random_normal_initializer(stddev=0.1), clip_gradients=3.0,
+                 decay_rate_big=0.50,
+                 top_k=3, length_data_mining_features=39):
         # 初始化参数
         self.num_classes = num_classes
         self.batch_size = batch_size
@@ -24,9 +23,6 @@ class TextCNN:
         self.initializer = initializer
         self.num_filters_total = self.num_filters * len(filter_sizes)  # 卷积核filter的数量
         self.clip_gradients = clip_gradients
-        self.model = model
-        self.similiarity_strategy = similiarity_strategy
-        self.max_pooling_style = max_pooling_style
         self.top_k = top_k
         self.length_data_mining_features = length_data_mining_features
         # 设置占位符和变量
