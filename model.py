@@ -4,27 +4,24 @@ from tensorflow.contrib import rnn
 
 
 class TextCNN:
-    def __init__(self, filter_sizes, num_filters, num_classes, learning_rate, batch_size, decay_steps,decay_rate, sequence_length,
-                 vocab_size, embed_size, is_training, initializer=tf.random_normal_initializer(stddev=0.1), clip_gradients=3.0,
-                 decay_rate_big=0.50,
-                 top_k=3, length_data_mining_features=39):
+    def __init__(self, config):
         # 初始化参数
-        self.num_classes = num_classes
-        self.batch_size = batch_size
-        self.sequence_length = sequence_length
-        self.vocab_size = vocab_size
-        self.embed_size = embed_size
-        self.hidden_size = embed_size
-        self.is_training = is_training
-        self.learning_rate = tf.Variable(learning_rate, trainable=False, name="learning_rate")  # ADD learning_rate
+        self.num_classes = config["num_classes"]
+        self.sequence_length = config["sequence_length"]
+        self.vocab_size = config["vocab_size"]
+        self.embed_size = config["embed_size"]
+        self.hidden_size = config["embed_size"]
+        self.is_training = config["is_training"]
+        self.learning_rate = tf.Variable(config["learning_rate"], trainable=False, name="learning_rate")  # ADD learning_rate
+        decay_rate_big = 0.50
         self.learning_rate_decay_half_op = tf.assign(self.learning_rate, self.learning_rate * decay_rate_big)
-        self.filter_sizes = filter_sizes  # it is a list of int. e.g. [3,4,5]
-        self.num_filters = num_filters
-        self.initializer = initializer
-        self.num_filters_total = self.num_filters * len(filter_sizes)  # 卷积核filter的数量
-        self.clip_gradients = clip_gradients
-        self.top_k = top_k
-        self.length_data_mining_features = length_data_mining_features
+        self.filter_sizes = config["filter_sizes"]  # it is a list of int. e.g. [3,4,5]
+        self.num_filters = config["num_filters"]
+        self.initializer = tf.random_normal_initializer(stddev=0.1)
+        self.num_filters_total = self.num_filters * len(config["filter_sizes"])  # 卷积核filter的数量
+        self.clip_gradients = config["clip_gradients"]
+        self.top_k = config["top_k"]
+        self.length_data_mining_features = config["features_vector_size"]
         # 设置占位符和变量
         self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size], initializer=self.initializer)
         self.input_x1 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x1")  # sentences_1
@@ -49,7 +46,7 @@ class TextCNN:
         self.b1 = tf.Variable(tf.ones([self.hidden_size]) / 10)
         self.b2 = tf.Variable(tf.ones([self.hidden_size]) / 10)
         self.b3 = tf.Variable(tf.ones([self.hidden_size*2]) / 10)
-        self.decay_steps, self.decay_rate = decay_steps, decay_rate
+        self.decay_steps, self.decay_rate = config["decay_steps"], config["decay_rate"]
 
         # 构造图
         self.logits = self.inference_cnn()   # 获得预测值（one-hot向量：[batch_size, num_classes]）

@@ -1,9 +1,11 @@
 import tensorflow as tf
 import numpy as np
-# from model import TextCNN
+from model import TextCNN
 # from data_util import create_vocabulary,load_data
 import os
 import csv
+import json
+from collections import OrderedDict
 import re
 import codecs
 import random
@@ -14,13 +16,13 @@ from gensim.models import KeyedVectors
 from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_padding_split, BatchManager, init_weights_dict,\
     get_weights_for_current_batch, compute_confuse_matrix, write_predict_error_to_file, compute_labels_weights,\
     get_weights_label_as_standard_dict
-from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_embedding
-from model import TextCNN
+from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_embedding, get_config
 
 FLAGS = tf.app.flags.FLAGS
 # 文件路径参数
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
 tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
+tf.app.flags.DEFINE_string("config_file", "config", "dir for save pkl file")
 tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
 # tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of demo data.")
 # tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's vocabulary and vectors")
@@ -39,6 +41,7 @@ tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")  # 0.001
 tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
 tf.app.flags.DEFINE_integer("decay_steps", 1000, "how many steps before decay learning rate.")
 tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.")
+tf.app.flags.DEFINE_float("clip_gradients", 3.0, "clip_gradients")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "dropout keep probability")
 filter_sizes = [2, 3, 4]
@@ -56,6 +59,29 @@ class Main:
         self.train_batch_manager = None  # train数据batch生成类
         self.valid_batch_manager = None  # valid数据batch生成类
         self.test_batch_manager = None  # test数据batch生成类
+
+    def config_model(self):
+        """
+        设置模型参数
+        :param char_to_id:词到索引的映射字典
+        :param tag_to_id:标签到索引的映射字典
+        :return:config：dict
+        """
+        config = OrderedDict()
+        config["learning_rate"] = FLAGS.learning_rate
+        config["num_classes"] = self.num_classes
+        config["sequence_length"] = FLAGS.sentence_len
+        config["vocab_size"] = self.vocab_size
+        config["embed_size"] = FLAGS.embed_size
+        config["is_training"] = FLAGS.is_training
+        config["filter_sizes"] = filter_sizes
+        config["num_filters"] = FLAGS.num_filters
+        config["top_k"] = FLAGS.top_k
+        config["features_vector_size"] = self.features_vector_size
+        config["decay_steps"] = FLAGS.decay_steps
+        config["decay_rate"] = FLAGS.decay_rate
+        config["clip_gradients"] = FLAGS.clip_gradients
+        return config
 
     def get_dict(self):
         """
@@ -120,10 +146,13 @@ class Main:
         self.test_batch_manager = BatchManager(test_data, int(FLAGS.batch_size))
 
     def train(self):
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
-        with tf.Session(config=config) as sess:
-            textCNN, saver = self.create_model(sess)
+        config = self.config_model()
+        with open(FLAGS.config_file, "w", encoding="utf8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=4)
+        tf_config = tf.ConfigProto()
+        tf_config.gpu_options.allow_growth = True
+        with tf.Session(config=tf_config) as sess:
+            textCNN, saver = self.create_model(sess, config)
             curr_epoch = sess.run(textCNN.epoch_step)
             iteration = 0
             best_acc = 0.60
@@ -183,10 +212,8 @@ class Main:
             test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, textCNN, self.valid_batch_manager, iteration)
             print("Test Loss:%.3f\tAcc:%.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f:" % (test_loss, acc_t, f1_score_t, precision, recall))
 
-    def create_model(self, sess):
-        text_cnn = TextCNN(filter_sizes, FLAGS.num_filters, self.num_classes, FLAGS.learning_rate, FLAGS.batch_size, FLAGS.decay_steps,
-                           FLAGS.decay_rate, FLAGS.sentence_len, self.vocab_size, FLAGS.embed_size, FLAGS.is_training, top_k=FLAGS.top_k,
-                           length_data_mining_features=self.features_vector_size)
+    def create_model(self, sess, config):
+        text_cnn = TextCNN(config)
         saver = tf.train.Saver()
         if os.path.exists(FLAGS.ckpt_dir+"checkpoint"):
             print("Restoring Variables from Checkpoint.")
