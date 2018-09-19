@@ -8,7 +8,6 @@ PAD_ID = 0
 UNK_ID = 1
 _PAD = "_PAD"
 _UNK = "UNK"
-sentence_len = 39
 valid_num = 1600
 test_num = 800
 
@@ -46,11 +45,10 @@ def create_dict(data, path):
     return word_to_index, index_to_word, label_to_index, index_to_label
 
 
-def features_engineer(data, word_to_index, fasttext_dict, word2vec_dict, tfidf_dict, n_gram):
+def features_engineer(data, fasttext_dict, word2vec_dict, tfidf_dict, n_gram):
     """
     特征工程，基于tfidf值、fasttext词向量、word2vec词向量构造多种特征
     :param data:
-    :param word_to_index:word-index的映射字典
     :param fasttext_dict:word-fasttext字典
     :param word2vec_dict:word-word2vec字典
     :param tfidf_dict:word-tfidf字典
@@ -60,11 +58,6 @@ def features_engineer(data, word_to_index, fasttext_dict, word2vec_dict, tfidf_d
     features_vector = []
     for index, row in enumerate(data):
         features_vector_line = []
-        # 此处不用，但是在拿到特征工程结果后会用到
-        # word_list_1 = list(row[1])  # 第一个句子的字符word组成的列表
-        # index_list_1 = [word_to_index.get(word, UNK_ID) for word in word_list_1]
-        # word_list_2 = list(row[2])  # 第一个句子的字符word组成的列表
-        # index_list_2 = [word_to_index.get(word, UNK_ID) for word in word_list_2]
         string_1 = row[1].strip()
         string_2 = row[2].strip()
         # 获取n-gram similarity
@@ -286,7 +279,7 @@ def sentence_word_to_index(data, word_to_index, label_to_index):
     return sentences_1, sentences_2, labels
 
 
-def shuffle_padding_split(sentences_1, sentences_2, labels, features_vector, path):
+def shuffle_padding_split(sentences_1, sentences_2, labels, features_vector, path, sentence_len):
     """
     将数据集随机打乱，然后按照比例分割并生成训练集、验证集、测试集。
     :param sentences_1:
@@ -294,6 +287,7 @@ def shuffle_padding_split(sentences_1, sentences_2, labels, features_vector, pat
     :param labels:
     :param features_vector: 特征工程获得的特征向量
     :param path: dump的目标路径
+    :param sentence_len: 预设的最大句子长度，将每个句子填充到这个长度
     :return:
     """
     # print(sentences_1, sentences_2, labels, features_vector)
@@ -340,6 +334,7 @@ def pad_sequences(s, maxlen, value):
             s_new.append(string)
     return s_new
 
+
 class BatchManager(object):
     """
     用于生成batch数据的batch管理类
@@ -375,12 +370,6 @@ def init_weights_dict(weights_dict):
 
 
 def get_weights_for_current_batch(answer_list, weights_dict):
-    """
-    get weights for current batch
-    :param  answer_list: a numpy array contain labels for a batch
-    :param  weights_dict: a dict that contain weights for all labels
-    :return: a list. length is label size.
-    """
     weights_list_batch = list(np.ones((len(answer_list))))
     answer_list = list(answer_list)
     for i, label in enumerate(answer_list):
@@ -390,12 +379,6 @@ def get_weights_for_current_batch(answer_list, weights_dict):
 
 
 def compute_confuse_matrix(logit, label):
-    """
-    compoute f1_score.
-    :param logits: [batch_size,label_size]
-    :param evalY: [batch_size,label_size]
-    :return:
-    """
     length = len(label)
     true_positive = 0  # TP:if label is true('1'), and predict is true('1')
     false_positive = 0  # FP:if label is false('0'),but predict is ture('1')
@@ -430,9 +413,9 @@ def write_predict_error_to_file(file_object, logit, label, index_to_word, x1_ind
 def compute_labels_weights(weights_label, logits, labels):
     """
     计算每一轮epoch的类别权重参数并进行更新
-    :param weights_label:a dict
-    :param logit: [None,Vocabulary_size]
-    :param label: [None,]
+    :param weights_label:
+    :param logits: 预测值[None,num_classes]
+    :param labels: 真实标签[None,]
     :return:
     """
     for i in range(len(labels)):

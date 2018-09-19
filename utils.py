@@ -1,9 +1,6 @@
-from collections import Counter
-import os
 import jieba
 import codecs
 import re
-import json
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -105,17 +102,3 @@ def load_word_embedding(emb_matrix, word2vec_model_path, embed_size, index_to_wo
               (c_found + c_lower + c_zeros, n_words, 100. * (c_found + c_lower + c_zeros) / n_words))
         print('%i found directly, %i after lowercasing, ''%i after lowercasing + zero.' % (c_found, c_lower, c_zeros))
         return emb_matrix
-
-
-def get_config(config_file):
-    """
-    从模型参数配置文件中获取参数或者用config_model函数生成参数并存储
-    :return:日志logger及参数列表config
-    """
-    if os.path.isfile(config_file):
-        with open(config_file, encoding="utf8") as f:
-            config = json.load(f)
-    else:
-        config = self.config_model(self.char_to_id, self.tag_to_id)
-        save_config(config, FLAGS.config_file)
-    return logger, config

@@ -28,9 +28,8 @@ class TextCNN:
         # print("input_x1:", self.input_x1)
         self.input_x2 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x2")  # sentences_2
         # print("input_x2:", self.input_x2)
-        self.input_bluescores = tf.placeholder(tf.float32, [None, self.length_data_mining_features],
-                                               name="input_bluescores")  # features_vector
-        # print("input_bluescores:", self.input_bluescores)
+        self.features_vector = tf.placeholder(tf.float32, [None, self.length_data_mining_features], name="features_vector")  # features_vector
+        # print("features_vector:", self.features_vector)
         self.input_y = tf.placeholder(tf.int32, [None, ], name="input_y")  # labels:[None,num_classes]
         # print("input_y:", self.input_y)
         self.weights = tf.placeholder(tf.float32, [None, ], name="weights_label")  # 标签权重
@@ -59,11 +58,7 @@ class TextCNN:
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name="Accuracy")
 
     def inference_cnn(self):
-        """
-        main computation graph here: 1.get feature of input1 and input2; 2.multiplication; 3.linear classifier
-        :return:
-        """
-        h_bluescore = tf.layers.dense(self.input_bluescores, self.hidden_size / 2, use_bias=True)   # features_vector
+        h_bluescore = tf.layers.dense(self.features_vector, self.hidden_size / 2, use_bias=True)   # features_vector
         h_bluescore = tf.nn.relu(h_bluescore)
         # cnn features from sentences_1 and sentences_2
         x1 = self.conv_layers(self.input_x1, 1)  # [None,num_filters_total]
@@ -77,13 +72,6 @@ class TextCNN:
         return logits
 
     def conv_layers(self, input_x, name_scope, reuse_flag=False):
-        """
-        main computation graph
-        :param input_x:
-        :param name_scope:
-        :param reuse_flag:
-        :return:
-        """
         embedded_words = tf.nn.embedding_lookup(self.Embedding, input_x)    # [None,sentence_length,embed_size]
         # [None,sentence_length,embed_size,1] expand dimension so meet input requirement of 2d-conv
         sentence_embeddings_expanded = tf.expand_dims(embedded_words, -1)   # 词向量可以是多通道的
@@ -91,10 +79,9 @@ class TextCNN:
         for i, filter_size in enumerate(self.filter_sizes):
             with tf.variable_scope(str(name_scope)+"convolution-pooling-%s" % filter_size, reuse=reuse_flag):
                 # 1.create filter
-                filter = tf.get_variable("filter-%s" % filter_size, [filter_size, self.embed_size, 1, self.num_filters],
-                                         initializer=self.initializer)
+                filters = tf.get_variable("filter-%s" % filter_size, [filter_size, self.embed_size, 1, self.num_filters], initializer=self.initializer)
                 # 2.conv operation: conv2d===>computes a 2-D convolution given 4-D `input` and `filter` tensors.
-                conv = tf.nn.conv2d(sentence_embeddings_expanded, filter, strides=[1, 1, 1, 1],
+                conv = tf.nn.conv2d(sentence_embeddings_expanded, filters, strides=[1, 1, 1, 1],
                                     padding="VALID", name="conv")   # shape:[batch_size,sequence_length - filter_size + 1,1,num_filters]
                 # print("conv:", conv)
                 # 3. apply nolinearity
@@ -134,10 +121,6 @@ class TextCNN:
         return loss
 
     def train(self):
-        """
-        based on the loss, use SGD to update parameter
-        :return:
-        """
         learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step, self.decay_steps, self.decay_rate, staircase=True)
         train_op = tf.contrib.layers.optimize_loss(self.loss_val, global_step=self.global_step, learning_rate=learning_rate, optimizer="Adam", clip_gradients=self.clip_gradients)
         return train_op

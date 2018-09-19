@@ -1,22 +1,15 @@
 import tensorflow as tf
 import numpy as np
 from model import TextCNN
-# from data_util import create_vocabulary,load_data
 import os
 import csv
 import json
 from collections import OrderedDict
-import re
-import codecs
-import random
 import pickle
-# from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
-import gensim
-from gensim.models import KeyedVectors
 from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_padding_split, BatchManager, init_weights_dict,\
     get_weights_for_current_batch, compute_confuse_matrix, write_predict_error_to_file, compute_labels_weights,\
     get_weights_label_as_standard_dict
-from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_embedding, get_config
+from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_embedding
 
 FLAGS = tf.app.flags.FLAGS
 # 文件路径参数
@@ -61,12 +54,6 @@ class Main:
         self.test_batch_manager = None  # test数据batch生成类
 
     def config_model(self):
-        """
-        设置模型参数
-        :param char_to_id:词到索引的映射字典
-        :param tag_to_id:标签到索引的映射字典
-        :return:config：dict
-        """
         config = OrderedDict()
         config["learning_rate"] = FLAGS.learning_rate
         config["num_classes"] = self.num_classes
@@ -123,8 +110,7 @@ class Main:
                 word2vec_path = "data/word2vec.txt"
                 word2vec_dict = load_vector(word2vec_path)
                 # 基于句子的长度和包含的词汇、tfidf值、fasttext词向量、word2vec词向量进行特征工程，并获取相应的特征向量
-                features_vector = features_engineer(all_data, self.word_to_index, fasttext_dict,
-                                                    word2vec_dict, tfidf_dict, n_gram=8)
+                features_vector = features_engineer(all_data, fasttext_dict, word2vec_dict, tfidf_dict, n_gram=8)
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 all_data = csv.reader(data_f, delimiter='\t', quotechar='|')
                 # 语句序列化，将句子中的word映射成index，作为输入特征
@@ -134,8 +120,7 @@ class Main:
                 打乱数据、padding、添加features_vector到数据中并根据比例分割成train、valid、test数据，
                 train、valid、test里面又依次包含sentences_1，sentences_2，features_vector，labels四种数据
                 """
-                train_data, valid_data, test_data, true_label_pert = shuffle_padding_split(sentences_1, sentences_2, labels,
-                                                                                   features_vector, train_valid_test)
+                train_data, valid_data, test_data, true_label_pert = shuffle_padding_split(sentences_1, sentences_2, labels, features_vector, train_valid_test, FLAGS.sentence_len)
         self.features_vector_size = len(train_data[2][0])
         # print("features_vector_size:", self.features_vector_size)
         print("训练集大小：", len(train_data[0]), "验证集大小：", len(valid_data[0]), "正样本比例：", true_label_pert)
@@ -152,8 +137,8 @@ class Main:
         tf_config = tf.ConfigProto()
         tf_config.gpu_options.allow_growth = True
         with tf.Session(config=tf_config) as sess:
-            textCNN, saver = self.create_model(sess, config)
-            curr_epoch = sess.run(textCNN.epoch_step)
+            text_cnn, saver = self.create_model(sess, config)
+            curr_epoch = sess.run(text_cnn.epoch_step)
             iteration = 0
             best_acc = 0.60
             best_f1_score = 0.20
@@ -163,36 +148,20 @@ class Main:
                 # train
                 for batch in self.train_batch_manager.iter_batch(shuffle=True):
                     iteration += 1
-                    input_x1, input_x2, input_bluescores, input_y = batch
-                    input_x1 = np.asarray(input_x1)
-                    input_x2 = np.asarray(input_x2)
-                    input_bluescores = np.asarray(input_bluescores)
-                    input_y = np.asarray(input_y)
-                    # print(input_x1.shape)
-                    # print(input_x2.shape)
-                    # for x in input_x1:
-                    #     if len(x) != 39:
-                    #         print(x, len(x))
-                    # for x in input_x2:
-                    #     if len(x) != 39:
-                    #         print(x, len(x))
-                    # print(input_bluescores.shape)
-                    # print(input_y.shape)
+                    input_x1, input_x2, features_vector, input_y = batch
                     weights = get_weights_for_current_batch(input_y, weights_dict)   # 更新类别权重参数矩阵
-                    weights = np.asarray(weights)
-                    # print(weights.shape)
-                    feed_dict = {textCNN.input_x1: input_x1, textCNN.input_x2: input_x2, textCNN.input_bluescores: input_bluescores, textCNN.input_y: input_y,
-                                 textCNN.weights: weights, textCNN.dropout_keep_prob: FLAGS.dropout_keep_prob,
-                                 textCNN.iter: iteration, textCNN.tst: not FLAGS.is_training}
-                    curr_loss, curr_acc, lr, _ = sess.run([textCNN.loss_val, textCNN.accuracy, textCNN.learning_rate, textCNN.train_op], feed_dict)
+                    feed_dict = {text_cnn.input_x1: input_x1, text_cnn.input_x2: input_x2, text_cnn.features_vector: features_vector, text_cnn.input_y: input_y,
+                                 text_cnn.weights: weights, text_cnn.dropout_keep_prob: FLAGS.dropout_keep_prob,
+                                 text_cnn.iter: iteration, text_cnn.tst: not FLAGS.is_training}
+                    curr_loss, curr_acc, lr, _ = sess.run([text_cnn.loss_val, text_cnn.accuracy, text_cnn.learning_rate, text_cnn.train_op], feed_dict)
                     loss, eval_acc, counter = loss+curr_loss, eval_acc+curr_acc, counter+1
                     if counter % 100 == 0:  # steps_check
                         print("Epoch %d\tBatch %d\tTrain Loss:%.3f\tAcc:%.3f\tLearning rate:%.5f" % (epoch, counter, loss/float(counter), eval_acc/float(counter), lr))
                 print("going to increment epoch counter....")
-                sess.run(textCNN.epoch_increment)
+                sess.run(text_cnn.epoch_increment)
                 # valid
                 if epoch % FLAGS.validate_every == 0:
-                    eval_loss, eval_accc, f1_scoree, precision, recall, weights_label = self.evaluate(sess, textCNN, self.valid_batch_manager, iteration)
+                    eval_loss, eval_accc, f1_scoree, precision, recall, weights_label = self.evaluate(sess, text_cnn, self.valid_batch_manager, iteration)
                     weights_dict = get_weights_label_as_standard_dict(weights_label)
                     print("label accuracy(used for label weight):==========>>>>", weights_dict)
                     print("【Validation】Epoch %d\t Loss:%.3f\tAcc %.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f" % (epoch, eval_loss, eval_accc, f1_scoree, precision, recall))
@@ -207,9 +176,9 @@ class Main:
                     if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40)):
                         for i in range(2):  # decay learning rate if necessary.
                             print(i, "Going to decay learning rate by half.")
-                            sess.run(textCNN.learning_rate_decay_half_op)
+                            sess.run(text_cnn.learning_rate_decay_half_op)
             # test
-            test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, textCNN, self.valid_batch_manager, iteration)
+            test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, text_cnn, self.valid_batch_manager, iteration)
             print("Test Loss:%.3f\tAcc:%.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f:" % (test_loss, acc_t, f1_score_t, precision, recall))
 
     def create_model(self, sess, config):
@@ -237,25 +206,18 @@ class Main:
                 print("using pre-trained word emebedding.ended...")
         return text_cnn, saver
 
-    def evaluate(self, sess, textCNN, batch_manager, iteration):
+    def evaluate(self, sess, text_cnn, batch_manager, iteration):
         small_value = 0.00001
         file_object = open('data/log_predict_error.txt', 'a')
         eval_loss, eval_accc, eval_counter = 0.0, 0.0, 0
         eval_true_positive, eval_false_positive, eval_true_negative, eval_false_negative = 0, 0, 0, 0
         weights_label = {}  # weight_label[label_index]=(number,correct)
         for batch in batch_manager.iter_batch(shuffle=True):
-            eval_x1, eval_x2, eval_blue_scores, eval_y = batch
-            eval_x1 = np.asarray(eval_x1)
-            eval_x2 = np.asarray(eval_x2)
-            eval_blue_scores = np.asarray(eval_blue_scores)
-            eval_y = np.asarray(eval_y)
-            weights = np.ones(eval_x1.shape[0])   # weights的shape要与batch对上
-            # print(weights.shape)
-            # print(eval_x1.shape)
-            # print(eval_x2.shape)
-            feed_dict = {textCNN.input_x1: eval_x1, textCNN.input_x2: eval_x2, textCNN.input_bluescores: eval_blue_scores, textCNN.input_y: eval_y,
-                         textCNN.weights: weights, textCNN.dropout_keep_prob: 1.0, textCNN.iter: iteration, textCNN.tst: True}
-            curr_eval_loss, curr_accc, logits = sess.run([textCNN.loss_val, textCNN.accuracy, textCNN.logits], feed_dict)
+            eval_x1, eval_x2, features_vector, eval_y = batch
+            weights = np.ones(len(eval_x1))   # weights的shape要与batch对上
+            feed_dict = {text_cnn.input_x1: eval_x1, text_cnn.input_x2: eval_x2, text_cnn.features_vector: features_vector, text_cnn.input_y: eval_y,
+                         text_cnn.weights: weights, text_cnn.dropout_keep_prob: 1.0, text_cnn.iter: iteration, text_cnn.tst: True}
+            curr_eval_loss, curr_accc, logits = sess.run([text_cnn.loss_val, text_cnn.accuracy, text_cnn.logits], feed_dict)
             true_positive, false_positive, true_negative, false_negative = compute_confuse_matrix(logits, eval_y)
             write_predict_error_to_file(file_object, logits, eval_y, self.index_to_word, eval_x1, eval_x2)
             eval_loss, eval_accc, eval_counter = eval_loss+curr_eval_loss, eval_accc+curr_accc, eval_counter+1
