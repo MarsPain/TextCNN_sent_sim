@@ -286,7 +286,7 @@ def sentence_word_to_index(data, word_to_index, label_to_index):
     return sentences_1, sentences_2, labels
 
 
-def shuffle_split(sentences_1, sentences_2, labels, features_vector, path):
+def shuffle_padding_split(sentences_1, sentences_2, labels, features_vector, path):
     """
     将数据集随机打乱，然后按照比例分割并生成训练集、验证集、测试集。
     :param sentences_1:
@@ -310,6 +310,8 @@ def shuffle_split(sentences_1, sentences_2, labels, features_vector, path):
         s_2.append(sentences_2[index])
         f.append(features_vector[index])
         l.append(labels[index])
+    s_1 = pad_sequences(s_1, sentence_len, PAD_ID)  # padding
+    s_2 = pad_sequences(s_2, sentence_len, PAD_ID)
     train_num = len_data - valid_num - test_num
     # 可以在此处通过数据增强生成更多的训练数据，比如调换sentence_1和sentence_2的位置就是一个新的样本了，
     train_data = (s_1[:train_num], s_2[:train_num], f[:train_num], l[:train_num])
@@ -325,6 +327,18 @@ def shuffle_split(sentences_1, sentences_2, labels, features_vector, path):
         pickle.dump([train_data, valid_data, test_data, true_label_pert], f)
     return train_data, valid_data, test_data, true_label_pert
 
+
+def pad_sequences(s, maxlen, value):
+    s_new = []
+    for string in s:
+        if len(string) < maxlen:
+            padding = [value] * (maxlen - len(string))
+            s_new.append(string + padding)
+        elif len(string) > maxlen:
+            s_new.append(string[:maxlen])
+        else:
+            s_new.append(string)
+    return s_new
 
 class BatchManager(object):
     """

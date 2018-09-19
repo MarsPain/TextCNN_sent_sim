@@ -31,12 +31,16 @@ class TextCNN:
         self.length_data_mining_features = length_data_mining_features
         # 设置占位符和变量
         self.input_x1 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x1")  # sentences_1
+        print("input_x1:", self.input_x1)
         self.input_x2 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x2")  # sentences_2
+        print("input_x2:", self.input_x2)
         self.input_bluescores = tf.placeholder(tf.float32, [None, self.length_data_mining_features],
                                                name="input_bluescores")  # features_vector
+        print("input_bluescores:", self.input_bluescores)
         self.input_y = tf.placeholder(tf.int32, [None, ], name="input_y")  # labels:[None,num_classes]
-        # print("self.input_y:", self.input_y)
+        print("input_y:", self.input_y)
         self.weights = tf.placeholder(tf.float32, [None, ], name="weights_label")  # 标签权重
+        print("weights:", self.weights)
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
         self.iter = tf.placeholder(tf.int32)  # 记录training iteration
         self.tst = tf.placeholder(tf.bool)

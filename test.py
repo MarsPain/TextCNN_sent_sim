@@ -21,6 +21,6 @@ import pandas as pd
 # l = np.concatenate(l, 1)
 # print(l.shape)
 
-l = [1, 2, 3, 4]
-a, b, c, d = l
-print(a, b, c, d)
+# l = [1, 2, 3, 4]
+# a, b, c, d = l
+# print(a, b, c, d)

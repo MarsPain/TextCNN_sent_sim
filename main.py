@@ -11,7 +11,7 @@ import pickle
 # from weight_boosting import compute_labels_weights,get_weights_for_current_batch,get_weights_label_as_standard_dict,init_weights_dict
 import gensim
 from gensim.models import KeyedVectors
-from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_split, BatchManager, init_weights_dict,\
+from data_utils import create_dict, features_engineer, sentence_word_to_index, shuffle_padding_split, BatchManager, init_weights_dict,\
     get_weights_for_current_batch, compute_confuse_matrix, write_predict_error_to_file, compute_labels_weights,\
     get_weights_label_as_standard_dict
 from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_embedding
@@ -19,6 +19,7 @@ from model import TextCNN
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
+tf.app.flags.DEFINE_string("model_name", "dual_cnn", "which model to use:dual_bilstm_cnn,dual_bilstm,dual_cnn,mix. default is:mix")
 tf.app.flags.DEFINE_string("tokenize_style", 'word', "the style of tokenize sentence in char or word. default is char")
 tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
 tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
@@ -112,9 +113,10 @@ class Main:
                 打乱数据、padding、添加features_vector到数据中并根据比例分割成train、valid、test数据，
                 train、valid、test里面又依次包含sentences_1，sentences_2，features_vector，labels四种数据
                 """
-                train_data, valid_data, test_data, true_label_pert = shuffle_split(sentences_1, sentences_2, labels,
+                train_data, valid_data, test_data, true_label_pert = shuffle_padding_split(sentences_1, sentences_2, labels,
                                                                                    features_vector, train_valid_test)
-        self.features_vector_size = len(train_data[3])
+        self.features_vector_size = len(train_data[2][0])
+        # print("features_vector_size:", self.features_vector_size)
         print("训练集大小：", len(train_data[0]), "验证集大小：", len(valid_data[0]), "正样本比例：", true_label_pert)
         # 获取train、valid、test数据的batch生成类
         self.train_batch_manager = BatchManager(train_data, int(FLAGS.batch_size))
@@ -138,9 +140,25 @@ class Main:
                 for batch in self.train_batch_manager.iter_batch(shuffle=True):
                     iteration += 1
                     input_x1, input_x2, input_bluescores, input_y = batch
+                    input_x1 = np.asarray(input_x1)
+                    input_x2 = np.asarray(input_x2)
+                    input_bluescores = np.asarray(input_bluescores)
+                    input_y = np.asarray(input_y)
+                    # print(input_x1.shape)
+                    # print(input_x2.shape)
+                    # for x in input_x1:
+                    #     if len(x) != 39:
+                    #         print(x, len(x))
+                    # for x in input_x2:
+                    #     if len(x) != 39:
+                    #         print(x, len(x))
+                    # print(input_bluescores.shape)
+                    # print(input_y.shape)
                     weights = get_weights_for_current_batch(input_y, weights_dict)   # 更新类别权重参数矩阵
+                    weights = np.asarray(weights)
+                    # print(weights.shape)
                     feed_dict = {textCNN.input_x1: input_x1, textCNN.input_x2: input_x2, textCNN.input_bluescores: input_bluescores, textCNN.input_y: input_y,
-                                 textCNN.weights: np.asarray(weights), textCNN.dropout_keep_prob: FLAGS.dropout_keep_prob,
+                                 textCNN.weights: weights, textCNN.dropout_keep_prob: FLAGS.dropout_keep_prob,
                                  textCNN.iter: iteration, textCNN.tst: not FLAGS.is_training}
                     curr_loss, curr_acc, lr, _ = sess.run([textCNN.loss_val, textCNN.accuracy, textCNN.learning_rate, textCNN.train_op], feed_dict)
                     loss, eval_acc, counter = loss+curr_loss, eval_acc+curr_acc, counter+1
