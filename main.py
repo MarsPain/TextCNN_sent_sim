@@ -31,7 +31,7 @@ tf.app.flags.DEFINE_string("similiarity_strategy", 'additive', "similiarity stra
                                                                "default is additive")  # to tackle miss typed words
 tf.app.flags.DEFINE_string("max_pooling_style", 'chunk_max_pooling',
                            "max_pooling_style:max_pooling,k_max_pooling,chunk_max_pooling. default: chunk_max_pooling")
-tf.app.flags.DEFINE_integer("top_k", 3, "value of top k")
+tf.app.flags.DEFINE_integer("top_k", 1, "value of top k")
 tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
 # tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of traning data.")
 tf.app.flags.DEFINE_integer("vocab_size", 13422, "maximum vocab size.")  # 80000
