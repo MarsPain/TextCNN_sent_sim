@@ -49,6 +49,10 @@ def create_dict(data, path, tokenize_style):
 
 
 def token_string_to_list(string, tokenize_style):
+    jieba.suggest_freq('花呗', True)
+    jieba.suggest_freq('借呗', True)
+    jieba.suggest_freq('还款日', True)
+    jieba.suggest_freq('代还', True)
     string = re.sub("\*+", "*", string)
     string_list = []
     if tokenize_style == 'char':

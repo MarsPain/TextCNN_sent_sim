@@ -18,7 +18,7 @@ tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
 tf.app.flags.DEFINE_string("config_file", "config", "dir for save pkl file")
 tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
 # tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of demo data.")
-tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's embedding for word")
+tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec_model.txt", "word2vec's embedding for word")
 # tf.app.flags.DEFINE_string("word2vec_model_path", "data/wiki_100.utf8", "word2vec's embedding for char")
 tf.app.flags.DEFINE_string("fasttext_model_path", "data/fasttext_fin_model_50.vec", "fasttext's vocabulary and vectors")
 # 模型参数
@@ -29,7 +29,7 @@ tf.app.flags.DEFINE_boolean("use_pretrained_embedding", True, "whether to use em
 tf.app.flags.DEFINE_string("tokenize_style", 'word', "tokenize sentence in char,word,or pinyin.default is char")
 tf.app.flags.DEFINE_integer("embed_size", 100, "embedding size")
 tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
-tf.app.flags.DEFINE_integer("sentence_len", 39, "max sentence length. length should be divide by 3,""which is used by k max pooling.")
+tf.app.flags.DEFINE_integer("sentence_len", 21, "max sentence length. length should be divide by 3,""which is used by k max pooling.")
 tf.app.flags.DEFINE_integer("top_k", 1, "value of top k for k-max polling")
 tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")  # 0.001
 tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
@@ -175,10 +175,10 @@ class Main:
                         saver.save(sess, save_path, global_step=epoch)
                         best_acc = eval_accc
                         best_f1_score = f1_scoree
-                    # if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40)):
-                    #     for i in range(2):  # decay learning rate if necessary.
-                    #         print(i, "Going to decay learning rate by half.")
-                    #         sess.run(text_cnn.learning_rate_decay_half_op)
+                    if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40)):
+                        for i in range(2):  # decay learning rate if necessary.
+                            print(i, "Going to decay learning rate by half.")
+                            sess.run(text_cnn.learning_rate_decay_half_op)
             # test
             test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, text_cnn, self.valid_batch_manager, iteration)
             print("Test Loss:%.3f\tAcc:%.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f:" % (test_loss, acc_t, f1_score_t, precision, recall))
