@@ -1,7 +1,9 @@
 from collections import Counter
 import numpy as np
 import pickle
+import re
 import math
+import jieba
 import random
 
 PAD_ID = 0
@@ -12,11 +14,12 @@ valid_num = 1600
 test_num = 800
 
 
-def create_dict(data, path):
+def create_dict(data, path, tokenize_style):
     """
     通过训练集创建字符word和label与索引index之间的双向映射字典
     :param data:从原CSV中读取的训练数据，[index,"能不能开花呗老兄","花呗逾期了还能开通",label（0/1）]
     :param path:存储生成的映射字典的路径
+    :param tokenize_style:分词方法
     :return:四个dict:word和label与索引index之间的双向映射字典
     """
     word_to_index = {}
@@ -30,8 +33,8 @@ def create_dict(data, path):
     c_inputs = Counter()    # Counter用于统计字符串里某个字符出现的次数
     vocab_list = []  # 存储高词频的word及其相应的频数
     for i, row in enumerate(data):
-        string_list_1 = list(row[1].strip())
-        string_list_2 = list(row[2].strip())
+        string_list_1 = token_string_to_list(row[1].strip(), tokenize_style)
+        string_list_2 = token_string_to_list(row[2].strip(), tokenize_style)
         c_inputs.update(string_list_1)
         c_inputs.update(string_list_2)
         vocab_list = c_inputs.most_common(20000)  # 参数对word数量进行限制
@@ -45,13 +48,24 @@ def create_dict(data, path):
     return word_to_index, index_to_word, label_to_index, index_to_label
 
 
-def features_engineer(data, fasttext_dict, word2vec_dict, tfidf_dict, n_gram):
+def token_string_to_list(string, tokenize_style):
+    string = re.sub("\*+", "*", string)
+    string_list = []
+    if tokenize_style == 'char':
+        string_list = list(string)
+    elif tokenize_style == 'word':
+        string_list = jieba.cut(string)
+    return string_list
+
+
+def features_engineer(data, fasttext_dict, word2vec_dict, tfidf_dict, tokenize_style, n_gram):
     """
     特征工程，基于tfidf值、fasttext词向量、word2vec词向量构造多种特征
     :param data:
     :param fasttext_dict:word-fasttext字典
     :param word2vec_dict:word-word2vec字典
     :param tfidf_dict:word-tfidf字典
+    :param tokenize_style:
     :param n_gram:n_gram similiarity窗口大小
     :return:
     """
@@ -81,8 +95,8 @@ def features_engineer(data, fasttext_dict, word2vec_dict, tfidf_dict, n_gram):
         edit_dist = float(get_edit_distance(string_1, string_2))/30.0
         features_vector_line.append(edit_dist)
         # 基于词向量以及tfidf计算文本的余弦距离、曼哈登距离等
-        string_list_1 = list(string_1)
-        string_list_2 = list(string_2)
+        string_list_1 = token_string_to_list(string_1, tokenize_style)
+        string_list_2 = token_string_to_list(string_2, tokenize_style)
         dist_fasttext_list = distance_vector_tfidf(string_list_1, string_list_2, fasttext_dict, tfidf_dict)
         dist_word2vec_list = distance_vector_tfidf(string_list_1, string_list_2, word2vec_dict, tfidf_dict)
         features_vector_line.extend(dist_fasttext_list)
@@ -255,22 +269,23 @@ def get_sentence_vector(vector_dict, tfidf_dict, string_list, tfidf_flag):
     return vec_sentence
 
 
-def sentence_word_to_index(data, word_to_index, label_to_index):
+def sentence_word_to_index(data, word_to_index, label_to_index, tokenize_style):
     """
     根据word到index的映射字典将语句中的word转换成index
     :param data: 全数据集
     :param word_to_index:
     :param label_to_index:
+    :param tokenize_style:
     :return:
     """
     sentences_1 = []
     sentences_2 = []
     labels = []
     for index, row in enumerate(data):
-        string_list_1 = list(row[1])  # 第一个句子的字符word组成的列表
+        string_list_1 = token_string_to_list(row[1].strip(), tokenize_style)  # 第一个句子的字符word组成的列表
         sentence_1 = [word_to_index.get(word, UNK_ID) for word in string_list_1]
         sentences_1.append(sentence_1)
-        string_list_2 = list(row[2])  # 第一个句子的字符word组成的列表
+        string_list_2 = token_string_to_list(row[2].strip(), tokenize_style)  # 第一个句子的字符word组成的列表
         sentence_2 = [word_to_index.get(word, UNK_ID) for word in string_list_2]
         sentences_2.append(sentence_2)
         label = label_to_index[row[3]]

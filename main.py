@@ -18,14 +18,15 @@ tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
 tf.app.flags.DEFINE_string("config_file", "config", "dir for save pkl file")
 tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
 # tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of demo data.")
-# tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's vocabulary and vectors")
-tf.app.flags.DEFINE_string("word2vec_model_path", "data/wiki_100.utf8", "word2vec's vocabulary and vectors")
+tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec.txt", "word2vec's embedding for word")
+# tf.app.flags.DEFINE_string("word2vec_model_path", "data/wiki_100.utf8", "word2vec's embedding for char")
 tf.app.flags.DEFINE_string("fasttext_model_path", "data/fasttext_fin_model_50.vec", "fasttext's vocabulary and vectors")
 # 模型参数
 tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
 tf.app.flags.DEFINE_integer("num_epochs", 50, "number of epochs to run.")
 tf.app.flags.DEFINE_integer("batch_size", 256, "Batch size for training/evaluating.")
 tf.app.flags.DEFINE_boolean("use_pretrained_embedding", True, "whether to use embedding or not.")
+tf.app.flags.DEFINE_string("tokenize_style", 'word', "tokenize sentence in char,word,or pinyin.default is char")
 tf.app.flags.DEFINE_integer("embed_size", 100, "embedding size")
 tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
 tf.app.flags.DEFINE_integer("sentence_len", 39, "max sentence length. length should be divide by 3,""which is used by k max pooling.")
@@ -85,7 +86,7 @@ class Main:
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 train_data = csv.reader(data_f, delimiter='\t', quotechar='|')
                 self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label = \
-                    create_dict(train_data, word_label_dict)
+                    create_dict(train_data, word_label_dict, FLAGS.tokenize_style)
                 # print(self.word_to_index)
         self.vocab_size = len(self.word_to_index)
         self.num_classes = len(self.label_to_index)
@@ -112,12 +113,11 @@ class Main:
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 all_data = csv.reader(data_f, delimiter='\t', quotechar='|')
                 # 基于句子的长度和包含的词汇、tfidf值、fasttext词向量、word2vec词向量进行特征工程，并获取相应的特征向量
-                features_vector = features_engineer(all_data, fasttext_dict, word2vec_dict, tfidf_dict, n_gram=8)
+                features_vector = features_engineer(all_data, fasttext_dict, word2vec_dict, tfidf_dict, FLAGS.tokenize_style, n_gram=8)
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 all_data = csv.reader(data_f, delimiter='\t', quotechar='|')
                 # 语句序列化，将句子中的word映射成index，作为输入特征
-                sentences_1, sentences_2, labels = sentence_word_to_index(all_data, self.word_to_index,
-                                                                          self.label_to_index)
+                sentences_1, sentences_2, labels = sentence_word_to_index(all_data, self.word_to_index, self.label_to_index, FLAGS.tokenize_style)
                 """
                 打乱数据、padding、添加features_vector到数据中并根据比例分割成train、valid、test数据，
                 train、valid、test里面又依次包含sentences_1，sentences_2，features_vector，labels四种数据
@@ -168,17 +168,17 @@ class Main:
                     print("label accuracy(used for label weight):==========>>>>", weights_dict)
                     print("【Validation】Epoch %d\t Loss:%.3f\tAcc %.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f" % (epoch, eval_loss, eval_accc, f1_scoree, precision, recall))
                     # save model to checkpoint
-                    if eval_accc > best_acc and f1_scoree > best_f1_score:
+                    if f1_scoree > best_f1_score:
                         save_path = FLAGS.ckpt_dir + "/model.ckpt"
                         print("going to save model. eval_f1_score:", f1_scoree, ";previous best f1 score:", best_f1_score,
                               ";eval_acc", str(eval_accc), ";previous best_acc:", str(best_acc))
                         saver.save(sess, save_path, global_step=epoch)
                         best_acc = eval_accc
                         best_f1_score = f1_scoree
-                    if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40)):
-                        for i in range(2):  # decay learning rate if necessary.
-                            print(i, "Going to decay learning rate by half.")
-                            sess.run(text_cnn.learning_rate_decay_half_op)
+                    # if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40)):
+                    #     for i in range(2):  # decay learning rate if necessary.
+                    #         print(i, "Going to decay learning rate by half.")
+                    #         sess.run(text_cnn.learning_rate_decay_half_op)
             # test
             test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, text_cnn, self.valid_batch_manager, iteration)
             print("Test Loss:%.3f\tAcc:%.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f:" % (test_loss, acc_t, f1_score_t, precision, recall))

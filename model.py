@@ -23,7 +23,7 @@ class TextCNN:
         self.top_k = config["top_k"]
         self.length_data_mining_features = config["features_vector_size"]
         # 设置占位符和变量
-        self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size], initializer=self.initializer)
+        self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size], initializer=self.initializer, trainable=False)
         self.input_x1 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x1")  # sentences_1
         # print("input_x1:", self.input_x1)
         self.input_x2 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x2")  # sentences_2
@@ -40,11 +40,6 @@ class TextCNN:
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
         self.epoch_step = tf.Variable(0, trainable=False, name="Epoch_Step")
         self.epoch_increment = tf.assign(self.epoch_step, tf.add(self.epoch_step, tf.constant(1)))
-        self.b1_conv1 = tf.Variable(tf.ones([self.num_filters]) / 10)
-        self.b1_conv2 = tf.Variable(tf.ones([self.num_filters]) / 10)
-        self.b1 = tf.Variable(tf.ones([self.hidden_size]) / 10)
-        self.b2 = tf.Variable(tf.ones([self.hidden_size]) / 10)
-        self.b3 = tf.Variable(tf.ones([self.hidden_size*2]) / 10)
         self.decay_steps, self.decay_rate = config["decay_steps"], config["decay_rate"]
 
         # 构造图

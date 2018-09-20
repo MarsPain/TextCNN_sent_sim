@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import re
 
 # s = "dgjsag"
 # l = list(s)
@@ -25,5 +26,9 @@ import pandas as pd
 # a, b, c, d = l
 # print(a, b, c, d)
 
-weights = np.ones(5)
-print(weights)
+# weights = np.ones(5)
+# print(weights)
+
+string = "ssadsa***dsada*sdad"
+string = re.sub("\*+", "*", string)
+print(string)
