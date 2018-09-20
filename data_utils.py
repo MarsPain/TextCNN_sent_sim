@@ -290,7 +290,7 @@ def shuffle_padding_split(sentences_1, sentences_2, labels, features_vector, pat
     :param sentence_len: 预设的最大句子长度，将每个句子填充到这个长度
     :return:
     """
-    # print(sentences_1, sentences_2, labels, features_vector)
+    # print(len(sentences_1), len(sentences_2), len(labels), len(features_vector))
     s_1 = []
     s_2 = []
     l = []
@@ -300,6 +300,7 @@ def shuffle_padding_split(sentences_1, sentences_2, labels, features_vector, pat
     # print(len(random_perm))
     # print(len(features_vector))
     for index in random_perm:
+        # print(index)
         s_1.append(sentences_1[index])
         s_2.append(sentences_2[index])
         f.append(features_vector[index])

@@ -86,7 +86,7 @@ class Main:
                 train_data = csv.reader(data_f, delimiter='\t', quotechar='|')
                 self.word_to_index, self.index_to_word, self.label_to_index, self.index_to_label = \
                     create_dict(train_data, word_label_dict)
-                print(self.word_to_index)
+                # print(self.word_to_index)
         self.vocab_size = len(self.word_to_index)
         self.num_classes = len(self.label_to_index)
 
@@ -109,6 +109,8 @@ class Main:
                 # 获取word2vec词向量
                 word2vec_path = "data/word2vec.txt"
                 word2vec_dict = load_vector(word2vec_path)
+            with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
+                all_data = csv.reader(data_f, delimiter='\t', quotechar='|')
                 # 基于句子的长度和包含的词汇、tfidf值、fasttext词向量、word2vec词向量进行特征工程，并获取相应的特征向量
                 features_vector = features_engineer(all_data, fasttext_dict, word2vec_dict, tfidf_dict, n_gram=8)
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
