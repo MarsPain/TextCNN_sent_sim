@@ -18,23 +18,22 @@ tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
 tf.app.flags.DEFINE_string("config_file", "config", "dir for save pkl file")
 tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
 # tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of demo data.")
-tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec_model.txt", "word2vec's embedding for word")
+# tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec_word_model.txt", "word2vec's embedding for word")
+tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec_char_model.txt", "word2vec's embedding for char")
 # tf.app.flags.DEFINE_string("word2vec_model_path", "data/wiki_100.utf8", "word2vec's embedding for char")
 tf.app.flags.DEFINE_string("fasttext_model_path", "data/fasttext_fin_model_50.vec", "fasttext's vocabulary and vectors")
 # 模型参数
 tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
-tf.app.flags.DEFINE_integer("num_epochs", 50, "number of epochs to run.")
+tf.app.flags.DEFINE_integer("num_epochs", 30, "number of epochs to run.")
 tf.app.flags.DEFINE_integer("batch_size", 256, "Batch size for training/evaluating.")
 tf.app.flags.DEFINE_boolean("use_pretrained_embedding", True, "whether to use embedding or not.")
-tf.app.flags.DEFINE_string("tokenize_style", 'word', "tokenize sentence in char,word,or pinyin.default is char")
+tf.app.flags.DEFINE_string("tokenize_style", 'char', "tokenize sentence in char,word,or pinyin.default is char")
 tf.app.flags.DEFINE_integer("embed_size", 100, "embedding size")
 tf.app.flags.DEFINE_integer("num_filters", 64, "number of filters")  # 64
-tf.app.flags.DEFINE_integer("sentence_len", 21, "max sentence length. length should be divide by 3,""which is used by k max pooling.")
+tf.app.flags.DEFINE_integer("sentence_len", 39, "max sentence length. length should be divide by 3,""which is used by k max pooling.")
 tf.app.flags.DEFINE_integer("top_k", 1, "value of top k for k-max polling")
 tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")  # 0.001
 tf.app.flags.DEFINE_boolean("decay_lr_flag", True, "whether manally decay lr")
-tf.app.flags.DEFINE_integer("decay_steps", 1000, "how many steps before decay learning rate.")
-tf.app.flags.DEFINE_float("decay_rate", 1.0, "Rate of decay for learning rate.")
 tf.app.flags.DEFINE_float("clip_gradients", 3.0, "clip_gradients")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "dropout keep probability")
@@ -66,8 +65,6 @@ class Main:
         config["num_filters"] = FLAGS.num_filters
         config["top_k"] = FLAGS.top_k
         config["features_vector_size"] = self.features_vector_size
-        config["decay_steps"] = FLAGS.decay_steps
-        config["decay_rate"] = FLAGS.decay_rate
         config["clip_gradients"] = FLAGS.clip_gradients
         return config
 
@@ -176,11 +173,12 @@ class Main:
                         best_acc = eval_accc
                         best_f1_score = f1_scoree
                     if FLAGS.decay_lr_flag and (epoch != 0 and (epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40)):
-                        for i in range(2):  # decay learning rate if necessary.
+                        for i in range(1):  # decay learning rate if necessary.
                             print(i, "Going to decay learning rate by half.")
                             sess.run(text_cnn.learning_rate_decay_half_op)
             # test
-            test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, text_cnn, self.valid_batch_manager, iteration)
+            saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
+            test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, text_cnn, self.test_batch_manager, iteration)
             print("Test Loss:%.3f\tAcc:%.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f:" % (test_loss, acc_t, f1_score_t, precision, recall))
 
     def create_model(self, sess, config):

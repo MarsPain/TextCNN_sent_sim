@@ -12,7 +12,8 @@ class TextCNN:
         self.embed_size = config["embed_size"]
         self.hidden_size = config["embed_size"]
         self.is_training = config["is_training"]
-        self.learning_rate = tf.Variable(config["learning_rate"], trainable=False, name="learning_rate")  # ADD learning_rate
+        self.lr = config["learning_rate"]
+        self.learning_rate = tf.Variable(config["learning_rate"], trainable=False, name="learning_rate")
         decay_rate_big = 0.50
         self.learning_rate_decay_half_op = tf.assign(self.learning_rate, self.learning_rate * decay_rate_big)
         self.filter_sizes = config["filter_sizes"]  # it is a list of int. e.g. [3,4,5]
@@ -23,7 +24,7 @@ class TextCNN:
         self.top_k = config["top_k"]
         self.length_data_mining_features = config["features_vector_size"]
         # 设置占位符和变量
-        self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size], initializer=self.initializer, trainable=False)
+        self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size], initializer=self.initializer)  # trainable=True
         self.input_x1 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x1")  # sentences_1
         # print("input_x1:", self.input_x1)
         self.input_x2 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x2")  # sentences_2
@@ -40,7 +41,6 @@ class TextCNN:
         self.global_step = tf.Variable(0, trainable=False, name="Global_Step")
         self.epoch_step = tf.Variable(0, trainable=False, name="Epoch_Step")
         self.epoch_increment = tf.assign(self.epoch_step, tf.add(self.epoch_step, tf.constant(1)))
-        self.decay_steps, self.decay_rate = config["decay_steps"], config["decay_rate"]
 
         # 构造图
         self.logits = self.inference_cnn()   # 获得预测值（one-hot向量：[batch_size, num_classes]）
@@ -116,6 +116,11 @@ class TextCNN:
         return loss
 
     def train(self):
-        learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step, self.decay_steps, self.decay_rate, staircase=True)
-        train_op = tf.contrib.layers.optimize_loss(self.loss_val, global_step=self.global_step, learning_rate=learning_rate, optimizer="Adam", clip_gradients=self.clip_gradients)
+        learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step, 1, 1, staircase=True)
+        train_op = tf.contrib.layers.optimize_loss(self.loss_val, global_step=self.global_step, learning_rate=learning_rate,
+                                                   optimizer="Adam", clip_gradients=self.clip_gradients)
+        # opt = tf.train.AdamOptimizer(self.lr)
+        # grads_vars = opt.compute_gradients(self.loss_val)
+        # capped_grads_vars = [[tf.clip_by_value(g, -self.clip_gradients, self.clip_gradients), v] for g, v in grads_vars]
+        # train_op = opt.apply_gradients(capped_grads_vars, self.global_step)
         return train_op
