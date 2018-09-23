@@ -5,7 +5,7 @@ from gensim.models import word2vec
 
 path_data_all = "data/atec_nlp_sim_train.csv"
 path_word2vec_word_string = "data/word2vec_word_string.txt"   # 用于训练word的word2vec的语料库
-path_word2vec_char_string = "data/word2vec_word_string.txt"   # 用于训练char的word2vec的语料库
+path_word2vec_char_string = "data/word2vec_char_string.txt"   # 用于训练char的word2vec的语料库
 
 
 def get_word_data():
@@ -55,7 +55,7 @@ def get_word2vec(type):
 
 
 if __name__ == "__main__":
-    # get_word_data()   # 词嵌入
-    # get_word2vec("word")
+    get_word_data()   # 词嵌入
+    get_word2vec("word")
     get_char_data()   # 字嵌入
     get_word2vec("char")

@@ -101,9 +101,9 @@ def features_engineer(data, fasttext_dict, word2vec_dict, tfidf_dict, tokenize_s
         # 基于词向量以及tfidf计算文本的余弦距离、曼哈登距离等
         string_list_1 = token_string_to_list(string_1, tokenize_style)
         string_list_2 = token_string_to_list(string_2, tokenize_style)
-        dist_fasttext_list = distance_vector_tfidf(string_list_1, string_list_2, fasttext_dict, tfidf_dict)
+        # dist_fasttext_list = distance_vector_tfidf(string_list_1, string_list_2, fasttext_dict, tfidf_dict)
         dist_word2vec_list = distance_vector_tfidf(string_list_1, string_list_2, word2vec_dict, tfidf_dict)
-        features_vector_line.extend(dist_fasttext_list)
+        # features_vector_line.extend(dist_fasttext_list)
         features_vector_line.extend(dist_word2vec_list)
         # print("features_vector_line:", len(features_vector_line), features_vector_line)
         features_vector.append(features_vector_line)

@@ -24,7 +24,7 @@ class TextCNN:
         self.top_k = config["top_k"]
         self.length_data_mining_features = config["features_vector_size"]
         # 设置占位符和变量
-        self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size], initializer=self.initializer)  # trainable=True
+        self.Embedding = tf.get_variable("Embedding", shape=[self.vocab_size, self.embed_size], initializer=self.initializer)
         self.input_x1 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x1")  # sentences_1
         # print("input_x1:", self.input_x1)
         self.input_x2 = tf.placeholder(tf.int32, [None, self.sequence_length], name="input_x2")  # sentences_2

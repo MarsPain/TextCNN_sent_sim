@@ -102,10 +102,10 @@ class Main:
                     get_tfidf_and_save(all_data, tfidf_path)
                 tfidf_dict = load_tfidf_dict(tfidf_path)
                 # 获取fasttext词向量
-                fasttext_path = "data/fasttext_fin_model_50.vec"
+                fasttext_path = FLAGS.fasttext_model_path
                 fasttext_dict = load_vector(fasttext_path)
                 # 获取word2vec词向量
-                word2vec_path = "data/word2vec.txt"
+                word2vec_path = "data/word2vec_word_model.txt"
                 word2vec_dict = load_vector(word2vec_path)
             with open(FLAGS.traning_data_path, "r", encoding="utf-8") as data_f:
                 all_data = csv.reader(data_f, delimiter='\t', quotechar='|')
