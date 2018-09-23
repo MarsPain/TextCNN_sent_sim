@@ -98,9 +98,9 @@ def features_engineer(data, fasttext_dict, word2vec_dict, tfidf_dict, tokenize_s
         # 获取编辑距离
         edit_dist = float(get_edit_distance(string_1, string_2))/30.0
         features_vector_line.append(edit_dist)
-        # 基于词向量以及tfidf计算文本的余弦距离、曼哈登距离等
-        string_list_1 = token_string_to_list(string_1, tokenize_style)
-        string_list_2 = token_string_to_list(string_2, tokenize_style)
+        # 基于词向量以及tfidf计算文本的余弦距离、曼哈顿距离等
+        string_list_1 = token_string_to_list(string_1, "word")
+        string_list_2 = token_string_to_list(string_2, "word")
         # dist_fasttext_list = distance_vector_tfidf(string_list_1, string_list_2, fasttext_dict, tfidf_dict)
         dist_word2vec_list = distance_vector_tfidf(string_list_1, string_list_2, word2vec_dict, tfidf_dict)
         # features_vector_line.extend(dist_fasttext_list)
