@@ -13,17 +13,17 @@ from utils import get_tfidf_and_save, load_tfidf_dict, load_vector, load_word_em
 
 FLAGS = tf.app.flags.FLAGS
 # 文件路径参数
+tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
 tf.app.flags.DEFINE_string("ckpt_dir", "ckpt", "checkpoint location for the model")
 tf.app.flags.DEFINE_string("pkl_dir", "pkl", "dir for save pkl file")
 tf.app.flags.DEFINE_string("config_file", "config", "dir for save pkl file")
 tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train.csv", "path of traning data.")
 # tf.app.flags.DEFINE_string("traning_data_path", "data/atec_nlp_sim_train_demo.csv", "path of demo data.")
 # tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec_word_model.txt", "word2vec's embedding for word")
-tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec_char_model.txt", "word2vec's embedding for char")
-# tf.app.flags.DEFINE_string("word2vec_model_path", "data/wiki_100.utf8", "word2vec's embedding for char")
+# tf.app.flags.DEFINE_string("word2vec_model_path", "data/word2vec_char_model.txt", "word2vec's embedding for char")
+tf.app.flags.DEFINE_string("word2vec_model_path", "data/wiki_100.utf8", "word2vec's embedding for char")
 tf.app.flags.DEFINE_string("fasttext_model_path", "data/fasttext_fin_model_50.vec", "fasttext's vocabulary and vectors")
 # 模型参数
-tf.app.flags.DEFINE_boolean("is_training", True, "is traning.true:tranining,false:testing/inference")
 tf.app.flags.DEFINE_integer("num_epochs", 30, "number of epochs to run.")
 tf.app.flags.DEFINE_integer("batch_size", 256, "Batch size for training/evaluating.")
 tf.app.flags.DEFINE_boolean("use_pretrained_embedding", True, "whether to use embedding or not.")
@@ -231,8 +231,23 @@ class Main:
         print("eval_counter:", eval_counter, ";eval_acc:", eval_accc)
         return eval_loss/float(eval_counter), eval_accc/float(eval_counter), f1_score, p, r, weights_label
 
+    def predict(self):
+        config = self.config_model()
+        with open(FLAGS.config_file, "w", encoding="utf8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=4)
+        tf_config = tf.ConfigProto()
+        tf_config.gpu_options.allow_growth = True
+        with tf.Session(config=tf_config) as sess:
+            text_cnn, saver = self.create_model(sess, config)
+            saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
+            test_loss, acc_t, f1_score_t, precision, recall, weights_label = self.evaluate(sess, text_cnn, self.test_batch_manager, 1)
+        print("Test Loss:%.3f\tAcc:%.3f\tF1 Score:%.3f\tPrecision:%.3f\tRecall:%.3f:" % (test_loss, acc_t, f1_score_t, precision, recall))
+
 if __name__ == "__main__":
     main = Main()
     main.get_dict()
     main.get_data()
-    main.train()
+    if FLAGS.is_training:
+        main.train()
+    else:
+        main.predict()
